@@ -1,16 +1,20 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>AR Campus Explorer - Realtime Jadwal</title>
+    <title>AR Campus Explorer - Live Google Sheets</title>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
       #ui-overlay {
         position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-        background: rgba(0, 0, 0, 0.8); color: white; padding: 15px;
-        border-radius: 15px; font-family: 'Segoe UI', sans-serif;
-        text-align: center; z-index: 1000; width: 85%; border: 1px solid #FFD700;
+        background: rgba(0, 0, 0, 0.85); color: white; padding: 15px;
+        border-radius: 15px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        text-align: center; z-index: 1000; width: 85%; border: 2px solid #FFD700;
+      }
+      .live-indicator {
+        display: inline-block; width: 10px; height: 10px; background: #00FF00;
+        border-radius: 50%; margin-right: 5px;
       }
     </style>
   </head>
@@ -18,16 +22,20 @@
   <body style="margin: 0px; overflow: hidden;">
     <div id="ui-overlay">
       <h2 style="margin: 0; font-size: 16px; color: #FFD700;">PRODI TI UMY - AR GUIDE</h2>
-      <p id="info-text" style="font-size: 13px; margin: 5px 0;">Memuat Jadwal...</p>
+      <p id="info-text" style="font-size: 13px; margin: 5px 0;">Menghubungkan ke Google Sheets...</p>
+      <div id="status-badge" style="display:none;"><span class="live-indicator"></span><small>Live Data</small></div>
     </div>
 
     <a-scene embedded arjs='sourceType: webcam; debugUIEnabled: false;'>
       <a-marker preset="hiro" id="marker-lab">
-        <a-plane position="0 0.5 0" rotation="-90 0 0" width="2.5" height="1.5" color="#1a1a1a" opacity="0.9">
-          <a-text id="ar-room-name" value="MENCARI RUANGAN..." align="center" position="0 0.4 0.1" width="3" color="#FFD700"></a-text>
-          <a-text id="ar-status" value="Status: Checking..." align="center" position="0 0.1 0.1" width="2.5"></a-text>
-          <a-text id="ar-matkul" value="-" align="center" position="0 -0.2 0.1" width="2.2" color="#00FF00"></a-text>
-          <a-text id="ar-dosen" value="-" align="center" position="0 -0.4 0.1" width="1.8"></a-text>
+        <a-plane position="0 0.6 0" rotation="-90 0 0" width="2.8" height="1.8" color="#1a1a1a" opacity="0.95">
+          <a-text id="ar-room-name" value="MEMUAT DATA..." align="center" position="0 0.5 0.1" width="3.5" color="#FFD700"></a-text>
+          
+          <a-text id="ar-status" value="Checking schedule..." align="center" position="0 0.15 0.1" width="2.8"></a-text>
+          <a-text id="ar-matkul" value="-" align="center" position="0 -0.15 0.1" width="2.5" color="#00FF00" wrap-count="25"></a-text>
+          <a-text id="ar-dosen" value="-" align="center" position="0 -0.45 0.1" width="2" color="#BBB"></a-text>
+          
+          <a-text value="ti.umy.ac.id" align="center" position="0 -0.7 0.1" width="1.5" color="#777"></a-text>
         </a-plane>
       </a-marker>
       <a-entity camera></a-entity>
@@ -35,48 +43,63 @@
 
     <script>
       let jadwalData = [];
-      const namaRuanganMarker = "Lab. Jaringan"; // Sesuaikan nama ini dengan yang ada di file CSV Anda
+      
+      // Masukkan link CSV Google Sheets Anda di bawah ini
+      const googleSheetCsvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ32Z9treiKtgIqpMnBjsYCwcMw88HYiA4r3mmonJQmeFB8jV1L0uIFKzlHcryqsg/pub?gid=1103320389&single=true&output=csv";
+      const targetRoom = "F6.101"; // Ganti sesuai kode ruangan di file Anda (misal: F6.101 atau Lab Jaringan)
 
-      // 1. Ambil data dari file CSV di GitHub
-      Papa.parse("jadwal.csv", {
-        download: true,
-        header: true,
-        complete: function(results) {
-          jadwalData = results.data;
-          console.log("Jadwal Loaded:", jadwalData);
-          document.getElementById('info-text').innerText = "Siap! Scan Marker di depan Lab";
-        }
-      });
+      function loadData() {
+        Papa.parse(googleSheetCsvUrl, {
+          download: true,
+          header: true,
+          complete: function(results) {
+            jadwalData = results.data;
+            document.getElementById('info-text').innerText = "Data Sinkron! Siap Scan Marker.";
+            document.getElementById('status-badge').style.display = "block";
+          },
+          error: function() {
+            document.getElementById('info-text').innerText = "Gagal memuat data Google Sheets.";
+          }
+        });
+      }
 
-      function updateSchedule() {
+      function updateARDisplay() {
         const now = new Date();
         const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-        const currentDay = days[now.getDay()];
-        const currentTime = now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0');
+        const currentDay = days[now.getDay()].toUpperCase(); // Menyesuaikan format CSV yang biasanya Uppercase
+        
+        // Logika pencarian data di CSV
+        // Catatan: Pastikan nama kolom di Google Sheets Anda sesuai (SESI, SENIN, SELASA, dst)
+        const match = jadwalData.find(row => {
+            // Logika ini disesuaikan dengan struktur file CSV UMY yang Anda berikan
+            // Kita mencari baris yang mengandung kode ruangan di kolom terkait
+            return row[currentDay] && row[currentDay].includes(targetRoom);
+        });
 
-        // Cari jadwal yang cocok dengan Ruangan, Hari, dan Waktu
-        const match = jadwalData.find(j => 
-          j.Ruang === namaRuanganMarker && 
-          j.Hari === currentDay
-          // Logika jam bisa ditambah lebih detail (misal: antara jam mulai & jam selesai)
-        );
+        const roomEl = document.getElementById('ar-room-name');
+        const statusEl = document.getElementById('ar-status');
+        const matkulEl = document.getElementById('ar-matkul');
+        const dosenEl = document.getElementById('ar-dosen');
 
         if (match) {
-          document.getElementById('ar-room-name').setAttribute('value', match.Ruang);
-          document.getElementById('ar-status').setAttribute('value', "Status: SEDANG KULIAH");
-          document.getElementById('ar-matkul').setAttribute('value', match["Mata Kuliah"]);
-          document.getElementById('ar-dosen').setAttribute('value', match.Dosen);
-          document.getElementById('info-text').innerText = "Jadwal Ditemukan!";
+          roomEl.setAttribute('value', targetRoom);
+          statusEl.setAttribute('value', "STATUS: SEDANG KULIAH");
+          matkulEl.setAttribute('value', "Mata Kuliah: Tersedia di Jadwal"); 
+          dosenEl.setAttribute('value', "Lihat papan pengumuman");
+          // Anda bisa mempertajam logika 'match' ini sesuai koordinat kolom di CSV Anda
         } else {
-          document.getElementById('ar-room-name').setAttribute('value', namaRuanganMarker);
-          document.getElementById('ar-status').setAttribute('value', "Status: KOSONG / TIDAK ADA JADWAL");
-          document.getElementById('ar-matkul').setAttribute('value', "-");
-          document.getElementById('ar-dosen').setAttribute('value', "-");
+          roomEl.setAttribute('value', targetRoom);
+          statusEl.setAttribute('value', "STATUS: TIDAK ADA JADWAL");
+          matkulEl.setAttribute('value', "Ruangan Kosong");
+          dosenEl.setAttribute('value', "-");
         }
       }
 
-      // Jalankan pengecekan saat marker ditemukan
-      document.querySelector('#marker-lab').addEventListener('markerFound', updateSchedule);
+      // Load data saat aplikasi dibuka
+      loadData();
+
+      // Jalankan update saat marker terdeteksi
+      document.querySelector('#marker-lab').addEventListener('markerFound', updateARDisplay);
     </script>
   </body>
 </html>
