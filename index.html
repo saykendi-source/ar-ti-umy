@@ -8,74 +8,68 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #000; font-family: sans-serif; overflow: hidden; }
 
-    /* ── Kamera AR ── */
     #camera-view {
-      display: none;
-      position: fixed; inset: 0; z-index: 0;
+      display: none; position: fixed; inset: 0; z-index: 0;
     }
-    #camera-view video {
-      width: 100%; height: 100%; object-fit: cover;
-    }
+    #camera-view video { width: 100%; height: 100%; object-fit: cover; }
 
-    /* ── AR Overlay (panah + info di atas kamera) ── */
     #ar-overlay {
-      display: none;
-      position: fixed; inset: 0; z-index: 100;
-      pointer-events: none;
+      display: none; position: fixed; inset: 0; z-index: 100; pointer-events: none;
     }
-
-    /* Panah besar di tengah layar */
     #ar-arrow-wrap {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      display: flex; flex-direction: column;
-      align-items: center; gap: 8px;
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -60%);
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
     }
     #ar-arrow {
       width: 0; height: 0;
-      border-left: 40px solid transparent;
-      border-right: 40px solid transparent;
-      border-bottom: 80px solid #FFD700;
-      filter: drop-shadow(0 0 12px rgba(255,215,0,0.9));
-      transition: transform 0.3s ease;
+      border-left: 45px solid transparent;
+      border-right: 45px solid transparent;
+      border-bottom: 90px solid #FFD700;
+      filter: drop-shadow(0 0 16px rgba(255,215,0,0.95));
+      transition: transform 0.25s ease;
     }
     #ar-label {
-      background: rgba(0,0,0,0.75); color: #FFD700;
-      padding: 8px 16px; border-radius: 12px;
-      font-size: 15px; font-weight: bold;
-      border: 1px solid #FFD700; text-align: center;
-      line-height: 1.5;
+      background: rgba(0,0,0,0.8); color: #FFD700;
+      padding: 8px 18px; border-radius: 12px; font-size: 15px;
+      font-weight: bold; border: 1.5px solid #FFD700; text-align: center; line-height: 1.6;
     }
-
-    /* Info jarak + lantai di bawah */
     #ar-info-bar {
-      position: absolute; bottom: 100px; left: 50%;
-      transform: translateX(-50%); width: 88%;
-      background: rgba(0,0,0,0.8); border: 1px solid #FFD700;
-      border-radius: 12px; padding: 10px 14px;
-      color: white; font-size: 13px; text-align: center; line-height: 1.8;
+      position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%);
+      width: 88%; background: rgba(0,0,0,0.8); border: 1px solid #FFD700;
+      border-radius: 12px; padding: 10px 14px; color: white;
+      font-size: 13px; text-align: center; line-height: 1.8;
     }
-
-    /* Kompas bar di atas */
     #ar-compass-bar {
       position: absolute; top: 0; left: 0; right: 0;
-      background: rgba(0,0,0,0.7); padding: 10px;
+      background: rgba(0,0,0,0.75); padding: 10px;
       color: #aaa; font-size: 12px; text-align: center;
-      border-bottom: 1px solid #333;
     }
-
-    /* Tombol stop AR */
     #btn-stop-ar {
-      position: absolute; bottom: 30px; left: 50%;
-      transform: translateX(-50%);
-      padding: 10px 28px; border-radius: 20px;
-      background: rgba(255,50,50,0.85); color: white;
-      font-size: 14px; font-weight: bold; border: none;
+      position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+      padding: 10px 30px; border-radius: 20px; background: rgba(220,50,50,0.9);
+      color: white; font-size: 14px; font-weight: bold; border: none;
       cursor: pointer; pointer-events: all;
     }
 
-    /* ── UI Jadwal (halaman utama) ── */
+    /* ── iOS Compass Permission Popup ── */
+    #ios-compass-popup {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,0.85); align-items: center; justify-content: center;
+    }
+    #ios-compass-popup.show { display: flex; }
+    .ios-popup-box {
+      background: #1a1a1a; border: 2px solid #FFD700; border-radius: 16px;
+      padding: 24px 20px; width: 88%; text-align: center; color: white;
+    }
+    .ios-popup-box h3 { color: #FFD700; margin-bottom: 10px; font-size: 16px; }
+    .ios-popup-box p  { font-size: 13px; color: #ccc; line-height: 1.6; margin-bottom: 18px; }
+    #btn-allow-compass {
+      width: 100%; padding: 13px; border-radius: 10px; background: #FFD700;
+      color: #111; font-weight: bold; font-size: 15px; border: none; cursor: pointer;
+    }
+
+    /* ── UI Jadwal ── */
     #ui-overlay {
       position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
       background: rgba(0,0,0,0.95); color: white; padding: 15px;
@@ -95,7 +89,9 @@
     }
     .day-btn.active { border-color: #FFD700; background: #FFD700; color: #111; font-weight: bold; }
     .day-btn.today-marker { border-color: #888; color: #fff; }
-    #search-result { margin-top: 10px; font-size: 13px; max-height: 300px; overflow-y: auto; color: #00FF00; }
+    #search-result {
+      margin-top: 10px; font-size: 13px; max-height: 300px; overflow-y: auto; color: #00FF00;
+    }
     .jadwal-item {
       background: rgba(255,255,255,0.07); padding: 10px; margin-bottom: 8px;
       border-radius: 8px; border-left: 4px solid #FFD700;
@@ -131,22 +127,34 @@
 </head>
 <body>
 
-  <!-- Kamera (background AR) -->
+  <!-- Kamera -->
   <div id="camera-view"><video id="cam-video" autoplay playsinline muted></video></div>
 
   <!-- AR Overlay -->
   <div id="ar-overlay">
     <div id="ar-compass-bar">
-      🧭 Arah kamu: <span id="txt-heading">--</span>° &nbsp;|&nbsp;
-      Arah ruangan: <span id="txt-bearing">--</span>° &nbsp;|&nbsp;
-      Jarak: <span id="txt-dist">--</span>m
+      🧭 Heading: <span id="txt-heading">--</span>° &nbsp;|&nbsp;
+      Arah tujuan: <span id="txt-bearing">--</span>° &nbsp;|&nbsp;
+      Jarak: <span id="txt-dist">--</span>
     </div>
     <div id="ar-arrow-wrap">
       <div id="ar-arrow"></div>
-      <div id="ar-label">--</div>
+      <div id="ar-label">Menunggu GPS & kompas...</div>
     </div>
     <div id="ar-info-bar">--</div>
     <button id="btn-stop-ar" onclick="stopAR()">✕ Matikan AR</button>
+  </div>
+
+  <!-- iOS Compass Permission Popup -->
+  <div id="ios-compass-popup">
+    <div class="ios-popup-box">
+      <h3>🧭 Izin Kompas Diperlukan</h3>
+      <p>iPhone membutuhkan izin khusus untuk mengakses kompas.<br>
+         Tap tombol di bawah untuk mengizinkan, lalu AR Navigator akan aktif otomatis.</p>
+      <button id="btn-allow-compass" onclick="grantCompassIOS()">
+        Izinkan Akses Kompas
+      </button>
+    </div>
   </div>
 
   <!-- UI Jadwal -->
@@ -158,17 +166,17 @@
     <span id="status-db">Status: Memuat...</span>
   </div>
 
-  <!-- Panel Info Navigasi -->
+  <!-- Panel Navigasi -->
   <div id="nav-panel">
     <h3 id="nav-title">Navigasi ke Ruangan</h3>
     <div id="nav-lantai" class="lantai-badge"></div>
-    <div id="nav-info"  class="nav-info"></div>
+    <div id="nav-info" class="nav-info"></div>
     <button class="btn-ar-start" onclick="startAR()">📷 Aktifkan AR Navigator</button>
     <button class="btn-nav-close" onclick="closeNav()">✕ Tutup</button>
   </div>
 
 <script>
-// ── Data Ruangan ─────────────────────────────────────────────────────
+// ── Data Ruangan ──────────────────────────────────────────────────────
 const lokasiRuang = {
   "F4.001": { lat:-7.80929638, lng:110.32205151, lantai:"Dasar",    gedung:"F4" },
   "F4.002": { lat:-7.80925054, lng:110.32208102, lantai:"Dasar",    gedung:"F4" },
@@ -190,16 +198,17 @@ const petunjukLantai = {
   "Lantai 2": "Naik ke Lantai 2 via tangga/lift di lobi utama gedung.",
 };
 
-// ── State ────────────────────────────────────────────────────────────
-const sheetUrl   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTayPnRtpp9N4qw7y73V7KS0xEY1kXtlDAGMCm4_IqzVWH_QYS-uVCZQRRZ62M3bQ/pub?output=csv";
-let jadwalData   = [];
-let activeRuang  = null;
-let userLat      = null, userLng = null;
-let userHeading  = null;
-let gpsWatcher   = null;
-let compassLoop  = null;
+// ── State ─────────────────────────────────────────────────────────────
+const sheetUrl  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTayPnRtpp9N4qw7y73V7KS0xEY1kXtlDAGMCm4_IqzVWH_QYS-uVCZQRRZ62M3bQ/pub?output=csv";
+let jadwalData  = [];
+let activeRuang = null;
+let userLat = null, userLng = null;
+let userHeading = null;
+let gpsWatcher  = null;
+let arLoop      = null;
+let pendingARStart = false; // flag: tunggu izin kompas iOS selesai
 
-// ── Hari ─────────────────────────────────────────────────────────────
+// ── Hari ──────────────────────────────────────────────────────────────
 const hariList   = ["Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
 const dayNames   = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
 const todayName  = dayNames[new Date().getDay()];
@@ -209,7 +218,7 @@ function buildDayButtons() {
   const c = document.getElementById('day-selector');
   hariList.forEach(hari => {
     const btn = document.createElement('button');
-    btn.className = 'day-btn' + (hari===todayName?' today-marker':'') + (hari===selectedHari?' active':'');
+    btn.className = 'day-btn'+(hari===todayName?' today-marker':'')+(hari===selectedHari?' active':'');
     btn.textContent = hari===todayName ? hari+' ★' : hari;
     btn.onclick = () => {
       selectedHari = hari;
@@ -227,11 +236,10 @@ Papa.parse(sheetUrl + "&cache=" + Date.now(), {
   download:true, header:true, skipEmptyLines:true,
   complete(r) {
     jadwalData = r.data;
-    const cols = r.meta.fields||[];
     document.getElementById('search-result').innerText = "Data siap. Silakan ketik nama dosen.";
     document.getElementById('status-db').innerText = `✅ ${jadwalData.length} baris | Hari ini: ${todayName}`;
   },
-  error(e) {
+  error() {
     document.getElementById('search-result').innerText = "❌ Gagal memuat data.";
   }
 });
@@ -241,13 +249,11 @@ function searchDosen() {
   const input = document.getElementById('dosen-input').value.toLowerCase().trim();
   const el    = document.getElementById('search-result');
   if (input.length < 3) { el.innerHTML = "Ketik minimal 3 huruf..."; return; }
-
   const hl = selectedHari.toLowerCase();
   const matches = jadwalData.filter(r =>
     (r["Dosen"]||"").toLowerCase().trim().includes(input) &&
     (r["Hari"] ||"").toLowerCase().trim() === hl
   );
-
   if (matches.length > 0) {
     let html = `<b style="color:#FFD700">Jadwal ${selectedHari===todayName?'Hari Ini ':''}(${selectedHari}):</b><br><br>`;
     matches.forEach(m => {
@@ -275,7 +281,7 @@ function searchDosen() {
 
 // ── Nav Panel ─────────────────────────────────────────────────────────
 function showNav(ruang) {
-  const lok = lokasiRuang[ruang]; if(!lok) return;
+  const lok = lokasiRuang[ruang]; if (!lok) return;
   activeRuang = ruang;
   document.getElementById('nav-title').textContent  = `Navigasi ke ${ruang}`;
   document.getElementById('nav-lantai').textContent = `${lok.gedung} — ${lok.lantai}`;
@@ -284,129 +290,151 @@ function showNav(ruang) {
      🪜 ${petunjukLantai[lok.lantai]||''}`;
   document.getElementById('nav-panel').style.display = 'block';
 }
-function closeNav() { document.getElementById('nav-panel').style.display='none'; }
+function closeNav() { document.getElementById('nav-panel').style.display = 'none'; }
 
-// ── AR ────────────────────────────────────────────────────────────────
+// ── AR Start ──────────────────────────────────────────────────────────
 async function startAR() {
-  if(!activeRuang) return;
-  const lok = lokasiRuang[activeRuang];
+  if (!activeRuang) return;
 
-  // 1. Minta kamera
+  // 1. Minta kamera dulu
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' }, audio:false });
     document.getElementById('cam-video').srcObject = stream;
     document.getElementById('camera-view').style.display = 'block';
   } catch(e) {
-    alert("Izin kamera diperlukan: " + e.message); return;
+    alert("Izin kamera diperlukan."); return;
   }
 
   // 2. Minta GPS
-  if(!navigator.geolocation) { alert("GPS tidak didukung."); return; }
+  if (!navigator.geolocation) { alert("GPS tidak didukung."); return; }
   gpsWatcher = navigator.geolocation.watchPosition(
     pos => { userLat = pos.coords.latitude; userLng = pos.coords.longitude; },
-    err => { alert("GPS gagal: " + (err.code===1?"Izin ditolak":err.code===2?"Posisi tidak ditemukan":"Timeout")); },
+    err => { console.warn('GPS err', err.code); },
     { enableHighAccuracy:true, maximumAge:1000 }
   );
 
-  // 3. Minta kompas (deviceorientation)
-  if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-    // iOS 13+
-    try {
-      const perm = await DeviceOrientationEvent.requestPermission();
-      if(perm !== 'granted') { alert("Izin kompas ditolak."); }
-    } catch(e) { console.warn('compass perm:', e); }
+  // 3. Cek apakah iOS → tampilkan popup izin kompas
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  if (isIOS && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // Simpan flag, tampilkan popup — izin HARUS dari tap langsung
+    pendingARStart = true;
+    closeNav();
+    document.getElementById('ios-compass-popup').classList.add('show');
+    return; // lanjut di grantCompassIOS()
   }
-  window.addEventListener('deviceorientationabsolute', onCompass, true);
-  window.addEventListener('deviceorientation',         onCompass, true);
 
-  // 4. Tampilkan AR
+  // Non-iOS: langsung daftarkan listener kompas
+  registerCompass();
+  launchAROverlay();
+}
+
+// Dipanggil oleh tombol "Izinkan Akses Kompas" di popup iOS
+async function grantCompassIOS() {
+  document.getElementById('ios-compass-popup').classList.remove('show');
+  try {
+    const result = await DeviceOrientationEvent.requestPermission();
+    if (result === 'granted') {
+      registerCompass();
+      launchAROverlay();
+    } else {
+      alert("Izin kompas ditolak. Panah tidak bisa bergerak tanpa kompas.");
+      // Tetap jalankan AR tapi tanpa kompas (heading=0)
+      launchAROverlay();
+    }
+  } catch(e) {
+    console.warn('compass permission error:', e);
+    launchAROverlay();
+  }
+}
+
+function registerCompass() {
+  // Prioritas: deviceorientationabsolute (Android & iOS baru)
+  window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+  // Fallback: deviceorientation biasa
+  window.addEventListener('deviceorientation', handleOrientation, true);
+}
+
+function handleOrientation(e) {
+  if (e.webkitCompassHeading != null) {
+    // iOS: webkitCompassHeading = derajat dari Utara, clockwise — langsung pakai
+    userHeading = e.webkitCompassHeading;
+  } else if (e.absolute && e.alpha != null) {
+    // Android absolute
+    userHeading = (360 - e.alpha) % 360;
+  } else if (e.alpha != null) {
+    // Fallback
+    userHeading = (360 - e.alpha) % 360;
+  }
+}
+
+function launchAROverlay() {
   closeNav();
   document.getElementById('ar-overlay').style.display = 'block';
   document.getElementById('ui-overlay').style.display = 'none';
-
-  // 5. Loop update panah
-  compassLoop = setInterval(() => updateArrow(lok), 200);
+  const lok = lokasiRuang[activeRuang];
+  arLoop = setInterval(() => updateArrow(lok), 150);
 }
 
-function onCompass(e) {
-  // Alpha = arah kompas (0=Utara, clockwise)
-  // iOS pakai webkitCompassHeading
-  if(e.webkitCompassHeading !== undefined) {
-    userHeading = e.webkitCompassHeading;             // sudah true north
-  } else if(e.absolute && e.alpha !== null) {
-    userHeading = 360 - e.alpha;                      // konversi ke clockwise
-  } else if(e.alpha !== null) {
-    userHeading = 360 - e.alpha;
-  }
-}
-
-// Hitung bearing dari titik A ke titik B (derajat, 0=Utara, clockwise)
+// ── Hitung bearing & jarak ────────────────────────────────────────────
 function calcBearing(lat1, lng1, lat2, lng2) {
-  const toRad = d => d * Math.PI / 180;
-  const dLng  = toRad(lng2 - lng1);
-  const y = Math.sin(dLng) * Math.cos(toRad(lat2));
-  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2))
-          - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng);
-  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  const r = Math.PI/180;
+  const dL = (lng2-lng1)*r;
+  const y  = Math.sin(dL)*Math.cos(lat2*r);
+  const x  = Math.cos(lat1*r)*Math.sin(lat2*r) - Math.sin(lat1*r)*Math.cos(lat2*r)*Math.cos(dL);
+  return (Math.atan2(y,x)*180/Math.PI + 360) % 360;
 }
-
-// Hitung jarak meter antara dua koordinat (Haversine)
 function calcDistance(lat1, lng1, lat2, lng2) {
-  const R = 6371000, toRad = d => d * Math.PI/180;
-  const dLat = toRad(lat2-lat1), dLng = toRad(lng2-lng1);
-  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const R=6371000, r=Math.PI/180;
+  const dLat=(lat2-lat1)*r, dLng=(lng2-lng1)*r;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
+// ── Update Panah ──────────────────────────────────────────────────────
 function updateArrow(lok) {
-  if(userLat === null) {
+  if (userLat === null) {
     document.getElementById('ar-label').textContent = "⏳ Menunggu GPS...";
     return;
   }
 
-  const bearing = calcBearing(userLat, userLng, lok.lat, lok.lng);
-  const dist    = calcDistance(userLat, userLng, lok.lat, lok.lng);
-
-  // Sudut rotasi panah = bearing target − heading kita
+  const bearing  = calcBearing(userLat, userLng, lok.lat, lok.lng);
+  const dist     = calcDistance(userLat, userLng, lok.lat, lok.lng);
   const heading  = userHeading !== null ? userHeading : 0;
   const rotation = (bearing - heading + 360) % 360;
+  const distText = dist < 1000 ? Math.round(dist)+'m' : (dist/1000).toFixed(1)+'km';
 
-  // Update panah
+  // Rotasi panah
   document.getElementById('ar-arrow').style.transform = `rotate(${rotation}deg)`;
 
-  // Update label
-  const distText = dist < 1000 ? Math.round(dist)+'m' : (dist/1000).toFixed(1)+'km';
-  document.getElementById('ar-label').innerHTML =
-    `⬆ <b>${activeRuang}</b><br>${lok.gedung} · ${lok.lantai} · ${distText}`;
+  // Label
+  document.getElementById('ar-label').innerHTML = dist < 15
+    ? `📍 <b>Kamu sudah dekat!</b><br>${activeRuang} · ${lok.lantai}`
+    : `<b>${activeRuang}</b><br>${lok.gedung} · ${lok.lantai} · ${distText}`;
 
-  // Update info bar
+  // Info bar
   document.getElementById('ar-info-bar').innerHTML =
     `🪜 ${petunjukLantai[lok.lantai]||''}<br>
-     <small style="color:#aaa">Sampai di area gedung, cari ${lok.gedung} lalu ${lok.lantai==='Dasar'?'langsung masuk':'naik ke '+lok.lantai}</small>`;
+     <small style="color:#aaa">${userHeading===null ? '⚠️ Kompas belum aktif — gerakkan HP untuk kalibrasi' : '✅ Kompas aktif'}</small>`;
 
-  // Update kompas bar
+  // Kompas bar
   document.getElementById('txt-heading').textContent = Math.round(heading);
   document.getElementById('txt-bearing').textContent = Math.round(bearing);
   document.getElementById('txt-dist').textContent    = distText;
-
-  // Kalau sudah sangat dekat (< 15m) → ganti info
-  if(dist < 15) {
-    document.getElementById('ar-label').innerHTML =
-      `📍 <b>Kamu sudah dekat!</b><br>${activeRuang} · ${lok.lantai}`;
-  }
 }
 
+// ── Stop AR ───────────────────────────────────────────────────────────
 function stopAR() {
-  if(gpsWatcher) navigator.geolocation.clearWatch(gpsWatcher);
-  clearInterval(compassLoop);
-  window.removeEventListener('deviceorientationabsolute', onCompass, true);
-  window.removeEventListener('deviceorientation',         onCompass, true);
+  clearInterval(arLoop);
+  if (gpsWatcher) navigator.geolocation.clearWatch(gpsWatcher);
+  window.removeEventListener('deviceorientationabsolute', handleOrientation, true);
+  window.removeEventListener('deviceorientation',         handleOrientation, true);
   const v = document.getElementById('cam-video');
-  if(v.srcObject) v.srcObject.getTracks().forEach(t=>t.stop());
-  document.getElementById('camera-view').style.display  = 'none';
-  document.getElementById('ar-overlay').style.display   = 'none';
-  document.getElementById('ui-overlay').style.display   = 'block';
-  userHeading = null; gpsWatcher = null; compassLoop = null;
+  if (v.srcObject) v.srcObject.getTracks().forEach(t=>t.stop());
+  document.getElementById('camera-view').style.display = 'none';
+  document.getElementById('ar-overlay').style.display  = 'none';
+  document.getElementById('ui-overlay').style.display  = 'block';
+  userHeading = null; userLat = null; userLng = null;
+  gpsWatcher = null; arLoop = null;
 }
 </script>
 </body>
