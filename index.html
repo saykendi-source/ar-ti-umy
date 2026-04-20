@@ -45,7 +45,7 @@
       let jadwalData = [];
       
       // Masukkan link CSV Google Sheets Anda di bawah ini
-      const googleSheetCsvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ32Z9treiKtgIqpMnBjsYCwcMw88HYiA4r3mmonJQmeFB8jV1L0uIFKzlHcryqsg/pub?gid=1103320389&single=true&output=csv";
+      const googleSheetCsvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ32Z9treiKtgIqpMnBjsYCwcMw88HYiA4r3mmonJQmeFB8jV1L0uIFKzlHcryqsg/pub?output=csv";
       const targetRoom = "F4.003"; // Ganti sesuai kode ruangan di file Anda (misal: F6.101 atau Lab Jaringan)
 
       function loadData() {
@@ -65,7 +65,7 @@
 
       function updateARDisplay() {
         const now = new Date();
-        const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+        const days = ["MINGGU", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
         const currentDay = days[now.getDay()].toUpperCase(); // Menyesuaikan format CSV yang biasanya Uppercase
         
         // Logika pencarian data di CSV
