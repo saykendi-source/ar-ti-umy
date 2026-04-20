@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Cek Kehadiran Dosen - AR Prodi TI</title>
+    <title>AR Campus Explorer - Prodi TI UMY</title>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
@@ -9,32 +9,36 @@
       #ui-overlay {
         position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
         background: rgba(0, 0, 0, 0.9); color: white; padding: 15px;
-        border-radius: 15px; font-family: sans-serif; z-index: 1000; width: 90%;
+        border-radius: 15px; font-family: sans-serif; z-index: 1000; width: 85%;
         border: 2px solid #FFD700; box-shadow: 0px 4px 15px rgba(0,0,0,0.5);
       }
       input {
-        width: 100%; padding: 10px; margin-top: 10px; border-radius: 5px;
-        border: none; font-size: 14px; box-sizing: border-box;
+        width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px;
+        border: none; font-size: 14px; box-sizing: border-box; outline: none;
       }
       #search-result {
         margin-top: 10px; font-size: 12px; text-align: left; 
-        max-height: 150px; overflow-y: auto; color: #00FF00;
+        max-height: 200px; overflow-y: auto; color: #00FF00;
+        line-height: 1.4;
       }
+      #info-status { font-size: 10px; color: #aaa; margin-top: 5px; display: block; }
     </style>
   </head>
 
   <body style="margin: 0px; overflow: hidden;">
     <div id="ui-overlay">
       <h2 style="margin: 0; font-size: 14px; color: #FFD700; text-align: center;">CARI JADWAL DOSEN HARI INI</h2>
-      <input type="text" id="dosen-input" placeholder="Ketik nama dosen (contoh: Cahyo)..." oninput="searchDosen()">
-      <div id="search-result">Hasil akan muncul di sini...</div>
+      <input type="text" id="dosen-input" placeholder="Ketik nama dosen (misal: Nasyan)..." oninput="searchDosen()">
+      <div id="search-result">Hasil pencarian muncul di sini...</div>
+      <span id="info-status">Menghubungkan ke database...</span>
     </div>
 
     <a-scene embedded arjs='sourceType: webcam; debugUIEnabled: false;'>
-      <a-marker preset="hiro">
-        <a-plane position="0 0.6 0" rotation="-90 0 0" width="2.8" height="1.8" color="#1a1a1a" opacity="0.9">
-          <a-text value="INFO DOSEN" align="center" position="0 0.6 0.1" width="3.5" color="#FFD700"></a-text>
-          <a-text id="ar-info-dosen" value="Scan & Cari Dosen di Atas" align="center" position="0 0 0.1" width="2.5"></a-text>
+      <a-marker preset="hiro" id="marker-handler">
+        <a-plane position="0 0.6 0" rotation="-90 0 0" width="2.8" height="2" color="#1a1a1a" opacity="0.95">
+          <a-text value="INFO JADWAL TI" align="center" position="0 0.8 0.1" width="3.5" color="#FFD700"></a-text>
+          <a-text id="ar-status-text" value="Scan Marker di Pintu Lab" align="center" position="0 0.2 0.1" width="2.5"></a-text>
+          <a-text id="ar-detail-text" value="Hasil pencarian akan muncul di sini" align="center" position="0 -0.3 0.1" width="2" wrap-count="30"></a-text>
         </a-plane>
       </a-marker>
       <a-entity camera></a-entity>
@@ -44,18 +48,20 @@
       const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ32Z9treiKtgIqpMnBjsYCwcMw88HYiA4r3mmonJQmeFB8jV1L0uIFKzlHcryqsg/pub?output=csv";
       let jadwalData = [];
 
-      Papa.parse(sheetUrl, {
+      // Ambil data dari Google Sheets
+      Papa.parse(sheetUrl + "&cb=" + Date.now(), {
         download: true,
         header: true,
         complete: function(results) {
-          jadwalData = results.data;
+          jadwalData = results.data.filter(row => row.HARI && row.DOSEN);
+          document.getElementById('info-status').innerText = "Database Terhubung (" + jadwalData.length + " Jadwal)";
         }
       });
 
+      // Fungsi 1: Pencarian Manual (Berdasarkan Nama Dosen)
       function searchDosen() {
-        const input = document.getElementById('dosen-input').value.toLowerCase();
+        const input = document.getElementById('dosen-input').value.toLowerCase().trim();
         const resultDiv = document.getElementById('search-result');
-        const arText = document.getElementById('ar-info-dosen');
         
         const now = new Date();
         const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
@@ -66,28 +72,56 @@
           return;
         }
 
-        // Filter jadwal berdasarkan nama dosen dan HARI INI
-        const matches = jadwalData.filter(row => 
-          row.DOSEN && 
-          row.DOSEN.toLowerCase().includes(input) && 
-          row.HARI === today
-        );
+        // Cari kecocokan nama tanpa peduli gelar
+        const matches = jadwalData.filter(row => {
+          const namaLow = row.DOSEN.toLowerCase();
+          return namaLow.includes(input) && row.HARI.trim() === today;
+        });
 
         if (matches.length > 0) {
-          let html = `<b>Jadwal ${today}:</b><br>`;
-          let arDisplay = `Dosen ditemukan di ${matches.length} kelas hari ini.`;
-          
+          let html = `<b style="color: #FFD700;">Jadwal ${today}:</b><br>`;
           matches.forEach(m => {
-            html += `• ${m.MULAI}-${m.SELESAI} | Ruang: ${m.RUANG}<br>`;
+            html += `<div style="margin-bottom: 8px; border-bottom: 1px solid #444; padding-bottom: 4px;">
+                      <b>${m.MULAI} - ${m.SELESAI}</b><br>
+                      Ruang: ${m.RUANG} | Matkul: ${m["MATA KULIAH"]}
+                    </div>`;
           });
-          
           resultDiv.innerHTML = html;
-          arText.setAttribute('value', arDisplay);
         } else {
-          resultDiv.innerHTML = `Dosen tidak ada jadwal mengajar hari ${today}.`;
-          arText.setAttribute('value', `Tidak ada jadwal hari ${today}`);
+          resultDiv.innerHTML = `Dosen tidak mengajar hari ${today}.`;
         }
       }
+
+      // Fungsi 2: Deteksi AR (Otomatis saat marker di-scan)
+      function updateAR() {
+        const now = new Date();
+        const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+        const today = days[now.getDay()];
+        const currentTime = (now.getHours() * 60) + now.getMinutes();
+
+        // Contoh: Jika marker ditaruh di pintu F4.002
+        const RUANG_INI = "F4.002"; 
+
+        const match = jadwalData.find(row => {
+          if (row.RUANG.trim() !== RUANG_INI || row.HARI.trim() !== today) return false;
+          
+          const toMin = (t) => {
+            const [h, m] = t.replace(".", ":").split(":").map(Number);
+            return (h * 60) + m;
+          };
+          return currentTime >= toMin(row.MULAI) && currentTime <= toMin(row.SELESAI);
+        });
+
+        if (match) {
+          document.getElementById('ar-status-text').setAttribute('value', "SEDANG KULIAH");
+          document.getElementById('ar-detail-text').setAttribute('value', `${match["MATA KULIAH"]}\n\n${match.DOSEN}`);
+        } else {
+          document.getElementById('ar-status-text').setAttribute('value', "RUANGAN KOSONG");
+          document.getElementById('ar-detail-text').setAttribute('value', "Tidak ada jadwal saat ini.");
+        }
+      }
+
+      document.querySelector('#marker-handler').addEventListener('markerFound', updateAR);
     </script>
   </body>
 </html>
