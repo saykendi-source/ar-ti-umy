@@ -12,10 +12,6 @@
         border-radius: 15px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         text-align: center; z-index: 1000; width: 85%; border: 2px solid #FFD700;
       }
-      .live-indicator {
-        display: inline-block; width: 10px; height: 10px; background: #00FF00;
-        border-radius: 50%; margin-right: 5px;
-      }
     </style>
   </head>
 
@@ -23,83 +19,89 @@
     <div id="ui-overlay">
       <h2 style="margin: 0; font-size: 16px; color: #FFD700;">PRODI TI UMY - AR GUIDE</h2>
       <p id="info-text" style="font-size: 13px; margin: 5px 0;">Menghubungkan ke Google Sheets...</p>
-      <div id="status-badge" style="display:none;"><span class="live-indicator"></span><small>Live Data</small></div>
     </div>
 
     <a-scene embedded arjs='sourceType: webcam; debugUIEnabled: false;'>
-      <a-marker preset="hiro" id="marker-lab">
-        <a-plane position="0 0.6 0" rotation="-90 0 0" width="2.8" height="1.8" color="#1a1a1a" opacity="0.95">
-          <a-text id="ar-room-name" value="MEMUAT DATA..." align="center" position="0 0.5 0.1" width="3.5" color="#FFD700"></a-text>
+      <a-marker preset="hiro" id="marker-handler">
+        <a-plane position="0 0.6 0" rotation="-90 0 0" width="2.8" height="1.8" color="#1a1a1a" opacity="0.9">
+          <a-text id="ar-room" value="MENCARI RUANG..." align="center" position="0 0.6 0.1" width="3.5" color="#FFD700"></a-text>
+          <a-text id="ar-status" value="Checking..." align="center" position="0 0.3 0.1" width="2.8"></a-text>
           
-          <a-text id="ar-status" value="Checking schedule..." align="center" position="0 0.15 0.1" width="2.8"></a-text>
-          <a-text id="ar-matkul" value="-" align="center" position="0 -0.15 0.1" width="2.5" color="#00FF00" wrap-count="25"></a-text>
-          <a-text id="ar-dosen" value="-" align="center" position="0 -0.45 0.1" width="2" color="#BBB"></a-text>
-          
-          <a-text value="ti.umy.ac.id" align="center" position="0 -0.7 0.1" width="1.5" color="#777"></a-text>
+          <a-text id="ar-matkul" value="-" align="center" position="0 0 0.1" width="2.5" color="#00FF00"></a-text>
+          <a-text id="ar-kelas" value="-" align="center" position="0 -0.25 0.1" width="2"></a-text>
+          <a-text id="ar-dosen" value="-" align="center" position="0 -0.5 0.1" width="2" wrap-count="30"></a-text>
         </a-plane>
       </a-marker>
       <a-entity camera></a-entity>
     </a-scene>
 
     <script>
+      const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ32Z9treiKtgIqpMnBjsYCwcMw88HYiA4r3mmonJQmeFB8jV1L0uIFKzlHcryqsg/pub?output=csv";
+      const RUANG_TARGET = "F4.002"; // Contoh: Lab Jaringan di data Anda adalah F4.002
       let jadwalData = [];
-      
-      // Masukkan link CSV Google Sheets Anda di bawah ini
-      const googleSheetCsvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ32Z9treiKtgIqpMnBjsYCwcMw88HYiA4r3mmonJQmeFB8jV1L0uIFKzlHcryqsg/pub?output=csv";
-      const targetRoom = "F4.003"; // Ganti sesuai kode ruangan di file Anda (misal: F6.101 atau Lab Jaringan)
 
-      function loadData() {
-        Papa.parse(googleSheetCsvUrl, {
-          download: true,
-          header: true,
-          complete: function(results) {
-            jadwalData = results.data;
-            document.getElementById('info-text').innerText = "Data Sinkron! Siap Scan Marker.";
-            document.getElementById('status-badge').style.display = "block";
-          },
-          error: function() {
-            document.getElementById('info-text').innerText = "Gagal memuat data Google Sheets.";
-          }
-        });
-      }
+      // 1. Ambil data Real-time dari Google Sheets
+      Papa.parse(sheetUrl, {
+        download: true,
+        header: true,
+        complete: function(results) {
+          jadwalData = results.data;
+          console.log("Data Terkoneksi:", jadwalData);
+          document.getElementById('info-text').innerText = "Koneksi Berhasil. Silakan Scan Marker.";
+        },
+        error: function(err) {
+          document.getElementById('info-text').innerText = "Gagal memuat data Google Sheets.";
+        }
+      });
 
       function updateARDisplay() {
         const now = new Date();
-        const days = ["MINGGU", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
-        const currentDay = days[now.getDay()].toUpperCase(); // Menyesuaikan format CSV yang biasanya Uppercase
-        
-        // Logika pencarian data di CSV
-        // Catatan: Pastikan nama kolom di Google Sheets Anda sesuai (SESI, SENIN, SELASA, dst)
+        const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+        const currentDay = days[now.getDay()];
+        const currentTime = now.getHours() * 100 + now.getMinutes();
+
+        // Cari baris yang cocok di CSV
         const match = jadwalData.find(row => {
-            // Logika ini disesuaikan dengan struktur file CSV UMY yang Anda berikan
-            // Kita mencari baris yang mengandung kode ruangan di kolom terkait
-            return row[currentDay] && row[currentDay].includes(targetRoom);
+          if (!row.Waktu || !row.Ruang) return false;
+          
+          // Parsing kolom Waktu: "Senin, 08.50-11.30"
+          const parts = row.Waktu.split(",");
+          if (parts.length < 2) return false;
+
+          const hariDiSheet = parts[0].trim();
+          const jamRange = parts[1].trim().split("-");
+          
+          const start = parseInt(jamRange[0].replace(/[:.]/g, "").trim());
+          const end = parseInt(jamRange[1].replace(/[:.]/g, "").trim());
+
+          return row.Ruang.trim() === RUANG_TARGET && 
+                 hariDiSheet === currentDay &&
+                 currentTime >= start && currentTime <= end;
         });
 
-        const roomEl = document.getElementById('ar-room-name');
-        const statusEl = document.getElementById('ar-status');
-        const matkulEl = document.getElementById('ar-matkul');
-        const dosenEl = document.getElementById('ar-dosen');
-
         if (match) {
-          roomEl.setAttribute('value', targetRoom);
-          statusEl.setAttribute('value', "STATUS: SEDANG KULIAH");
-          matkulEl.setAttribute('value', "Mata Kuliah: Tersedia di Jadwal"); 
-          dosenEl.setAttribute('value', "Lihat papan pengumuman");
-          // Anda bisa mempertajam logika 'match' ini sesuai koordinat kolom di CSV Anda
+          updateText('ar-room', "RUANG: " + match.Ruang);
+          updateText('ar-status', "SEDANG BERLANGSUNG");
+          updateText('ar-matkul', match["MATA KULIAH"]);
+          updateText('ar-kelas', "Kelas: " + match.Kelas);
+          updateText('ar-dosen', match.Dosen);
+          document.getElementById('info-text').innerText = "Jadwal Aktif Ditemukan!";
         } else {
-          roomEl.setAttribute('value', targetRoom);
-          statusEl.setAttribute('value', "STATUS: TIDAK ADA JADWAL");
-          matkulEl.setAttribute('value', "Ruangan Kosong");
-          dosenEl.setAttribute('value', "-");
+          updateText('ar-room', RUANG_TARGET);
+          updateText('ar-status', "TIDAK ADA JADWAL SEKARANG");
+          updateText('ar-matkul', "Ruangan Kosong");
+          updateText('ar-kelas', "-");
+          updateText('ar-dosen', "-");
+          document.getElementById('info-text').innerText = "Tidak ada jadwal saat ini.";
         }
       }
 
-      // Load data saat aplikasi dibuka
-      loadData();
+      function updateText(id, val) {
+        document.getElementById(id).setAttribute('value', val);
+      }
 
-      // Jalankan update saat marker terdeteksi
-      document.querySelector('#marker-lab').addEventListener('markerFound', updateARDisplay);
+      // Event listener saat marker tertangkap kamera
+      document.querySelector('#marker-handler').addEventListener('markerFound', updateARDisplay);
     </script>
   </body>
 </html>
