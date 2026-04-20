@@ -76,7 +76,7 @@
         // Filter berdasarkan kolom 'Dosen' dan 'Waktu' sesuai file Anda
         const matches = jadwalData.filter(row => {
           const namaDosen = (row["Dosen"] || "").toLowerCase();
-          const infoWaktu = (row["Waktu"] || "").toLowerCase();
+          const infoWaktu = (row["Hari"] || "").toLowerCase();
           
           // Mencari nama dosen DAN memastikan kata hari ini ada di kolom Waktu
           return namaDosen.includes(input) && infoWaktu.includes(today);
