@@ -2,11 +2,16 @@
 <html>
   <head>
     <title>Cek Jadwal TI UMY</title>
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+
+    <!-- ✅ URUTAN SCRIPT HARUS TEPAT: A-Frame dulu, baru AR.js GPS version -->
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <!-- ✅ Versi AR.js yang support gps-entity-place -->
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
       * { box-sizing: border-box; }
+
       #ui-overlay {
         position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
         background: rgba(0,0,0,0.95); color: white; padding: 15px;
@@ -26,6 +31,7 @@
       }
       .day-btn.active { border-color: #FFD700; background: #FFD700; color: #111; font-weight: bold; }
       .day-btn.today-marker { border-color: #888; color: #fff; }
+
       #search-result {
         margin-top: 10px; font-size: 13px; max-height: 260px;
         overflow-y: auto; color: #00FF00;
@@ -37,9 +43,10 @@
       .nav-btn {
         margin-top: 8px; width: 100%; padding: 8px; border-radius: 6px;
         background: #FFD700; color: #111; font-weight: bold; font-size: 13px;
-        border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+        border: none; cursor: pointer;
       }
-      .nav-btn:active { background: #e6c200; }
+
+      /* Panel navigasi */
       #nav-panel {
         display: none; position: fixed; bottom: 0; left: 0; right: 0;
         background: rgba(0,0,0,0.97); border-top: 2px solid #FFD700;
@@ -47,65 +54,98 @@
         font-family: sans-serif; color: white;
       }
       #nav-panel h3 { margin: 0 0 6px 0; color: #FFD700; font-size: 15px; }
-      #nav-panel .lantai-badge {
+      .lantai-badge {
         display: inline-block; background: #FFD700; color: #111;
         font-weight: bold; padding: 3px 10px; border-radius: 20px; font-size: 13px; margin-bottom: 10px;
       }
-      #nav-panel .nav-info { font-size: 13px; color: #ccc; margin-bottom: 12px; line-height: 1.6; }
+      .nav-info { font-size: 13px; color: #ccc; margin-bottom: 12px; line-height: 1.8; }
       .nav-close {
         width: 100%; padding: 10px; border-radius: 8px; background: #333;
-        color: #fff; border: 1px solid #555; font-size: 14px; cursor: pointer; margin-top: 4px;
+        color: #fff; border: 1px solid #555; font-size: 14px; cursor: pointer; margin-top: 6px;
       }
-      #ar-status {
-        font-size: 11px; color: #FFD700; text-align: center;
-        margin-top: 6px; display: none;
+      .ar-start-btn {
+        width: 100%; padding: 12px; border-radius: 8px; background: #FFD700;
+        color: #111; font-weight: bold; font-size: 14px; border: none; cursor: pointer;
       }
+
+      /* AR overlay status */
+      #ar-bar {
+        display: none; position: fixed; bottom: 16px; left: 50%;
+        transform: translateX(-50%); background: rgba(0,0,0,0.85);
+        color: #FFD700; font-size: 12px; padding: 10px 16px;
+        border-radius: 20px; z-index: 1500; border: 1px solid #FFD700;
+        font-family: sans-serif; text-align: center; width: 88%;
+      }
+      #ar-bar button {
+        margin-top: 6px; padding: 6px 14px; border-radius: 8px;
+        background: #333; color: #fff; border: 1px solid #555; font-size: 12px; cursor: pointer;
+      }
+
+      /* Debug panel */
+      #debug-panel {
+        display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.92); z-index: 3000; padding: 20px;
+        font-family: monospace; font-size: 12px; color: #0f0; overflow-y: auto;
+      }
+      #debug-panel h3 { color: #FFD700; }
+      #debug-panel button { padding: 8px 16px; background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; cursor: pointer; margin-top: 10px; }
+
       #status-db { font-size: 10px; color: #666; margin-top: 5px; display: block; }
-      #debug-info { font-size: 10px; color: #444; margin-top: 2px; display: block; word-break: break-all; }
     </style>
   </head>
 
   <body style="margin:0; overflow:hidden;">
 
-    <!-- UI Panel -->
+    <!-- UI Utama -->
     <div id="ui-overlay">
       <h2>🎓 CARI JADWAL DOSEN TI UMY</h2>
       <input type="text" id="dosen-input" placeholder="Ketik nama dosen (misal: Nasyan)..." oninput="searchDosen()">
       <div id="day-selector"></div>
       <div id="search-result">Menghubungkan ke Google Sheets...</div>
       <span id="status-db">Status: Memuat...</span>
-      <span id="debug-info"></span>
-      <div id="ar-status">📍 GPS aktif — Arahkan kamera ke sekitar gedung</div>
     </div>
 
-    <!-- Navigasi Panel (muncul saat tap navigasi) -->
+    <!-- Panel Info Navigasi -->
     <div id="nav-panel">
       <h3 id="nav-title">Navigasi ke Ruangan</h3>
       <div id="nav-lantai" class="lantai-badge"></div>
       <div id="nav-info" class="nav-info"></div>
-      <button class="nav-btn" onclick="startAR()">📷 Aktifkan AR Navigator</button>
+      <button class="ar-start-btn" onclick="startAR()">📷 Aktifkan AR Navigator</button>
       <button class="nav-close" onclick="closeNav()">✕ Tutup</button>
     </div>
 
-    <!-- AR Scene -->
+    <!-- AR Status Bar -->
+    <div id="ar-bar">
+      <span id="ar-bar-text">📍 AR aktif — arahkan kamera ke gedung</span><br>
+      <button onclick="stopAR()">✕ Matikan AR</button>
+    </div>
+
+    <!-- Debug Panel -->
+    <div id="debug-panel">
+      <h3>🔧 Debug Info</h3>
+      <pre id="debug-log"></pre>
+      <button onclick="document.getElementById('debug-panel').style.display='none'">Tutup Debug</button>
+    </div>
+
+    <!-- A-Frame AR Scene (GPS mode) -->
     <a-scene
+      id="ar-scene"
       vr-mode-ui="enabled: false"
       embedded
-      arjs="sourceType: webcam; debugUIEnabled: false; patternRatio: 0.85;">
-      <a-entity id="ar-markers"></a-entity>
-      <a-entity camera gps-camera rotation-reader></a-entity>
+      arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;">
+      <a-camera gps-camera rotation-reader></a-camera>
     </a-scene>
 
     <script>
-      // ── Data Ruangan ──────────────────────────────────────────────────
+      // ── Data Ruangan ──────────────────────────────────────────────
       const lokasiRuang = {
-        "F4.001": { lat: -7.80929638, lng: 110.32205151, lantai: "Dasar",   gedung: "F4" },
-        "F4.002": { lat: -7.80925054, lng: 110.32208102, lantai: "Dasar",   gedung: "F4" },
-        "F4.003": { lat: -7.80921201, lng: 110.32210381, lantai: "Dasar",   gedung: "F4" },
-        "F6.001": { lat: -7.80889114, lng: 110.32207565, lantai: "Dasar",   gedung: "F6" },
-        "F6.002": { lat: -7.80904061, lng: 110.32206291, lantai: "Dasar",   gedung: "F6" },
-        "F6.003": { lat: -7.80901337, lng: 110.32197507, lantai: "Dasar",   gedung: "F6" },
-        "F6.004": { lat: -7.80898547, lng: 110.32194489, lantai: "Dasar",   gedung: "F6" },
+        "F4.001": { lat: -7.80929638, lng: 110.32205151, lantai: "Dasar",    gedung: "F4" },
+        "F4.002": { lat: -7.80925054, lng: 110.32208102, lantai: "Dasar",    gedung: "F4" },
+        "F4.003": { lat: -7.80921201, lng: 110.32210381, lantai: "Dasar",    gedung: "F4" },
+        "F6.001": { lat: -7.80889114, lng: 110.32207565, lantai: "Dasar",    gedung: "F6" },
+        "F6.002": { lat: -7.80904061, lng: 110.32206291, lantai: "Dasar",    gedung: "F6" },
+        "F6.003": { lat: -7.80901337, lng: 110.32197507, lantai: "Dasar",    gedung: "F6" },
+        "F6.004": { lat: -7.80898547, lng: 110.32194489, lantai: "Dasar",    gedung: "F6" },
         "F6.101": { lat: -7.80888294, lng: 110.32199937, lantai: "Lantai 1", gedung: "F6" },
         "F6.102": { lat: -7.80888892, lng: 110.32205435, lantai: "Lantai 1", gedung: "F6" },
         "F6.103": { lat: -7.80890619, lng: 110.32209794, lantai: "Lantai 1", gedung: "F6" },
@@ -114,31 +154,34 @@
         "F6.204": { lat: -7.80899521, lng: 110.32194773, lantai: "Lantai 2", gedung: "F6" },
       };
 
-      // Petunjuk naik lantai
       const petunjukLantai = {
-        "Dasar":    "Ruangan berada di lantai dasar (Dasar). Tidak perlu naik tangga.",
-        "Lantai 1": "Naik ke Lantai 1 — gunakan tangga atau lift di lobi utama gedung.",
-        "Lantai 2": "Naik ke Lantai 2 — gunakan tangga atau lift di lobi utama gedung.",
+        "Dasar":    "Ruangan di lantai dasar. Tidak perlu naik tangga.",
+        "Lantai 1": "Naik ke Lantai 1 via tangga/lift di lobi utama gedung.",
+        "Lantai 2": "Naik ke Lantai 2 via tangga/lift di lobi utama gedung.",
       };
 
-      // ── Setup Hari ────────────────────────────────────────────────────
-      const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTayPnRtpp9N4qw7y73V7KS0xEY1kXtlDAGMCm4_IqzVWH_QYS-uVCZQRRZ62M3bQ/pub?output=csv";
-      let jadwalData = [];
+      // ── Hari ──────────────────────────────────────────────────────
+      const sheetUrl  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTayPnRtpp9N4qw7y73V7KS0xEY1kXtlDAGMCm4_IqzVWH_QYS-uVCZQRRZ62M3bQ/pub?output=csv";
+      let jadwalData  = [];
       let activeRuang = null;
+      let arActive    = false;
 
       const hariList  = ["Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
       const dayNames  = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
       const todayName = dayNames[new Date().getDay()];
       let selectedHari = hariList.includes(todayName) ? todayName : "Senin";
 
+      function dbg(msg) {
+        const el = document.getElementById('debug-log');
+        el.textContent += new Date().toLocaleTimeString() + ' › ' + msg + '\n';
+      }
+
       function buildDayButtons() {
         const container = document.getElementById('day-selector');
         hariList.forEach(hari => {
           const btn = document.createElement('button');
-          const isToday  = hari === todayName;
-          const isActive = hari === selectedHari;
-          btn.className = 'day-btn' + (isToday ? ' today-marker' : '') + (isActive ? ' active' : '');
-          btn.textContent = isToday ? hari + ' ★' : hari;
+          btn.className = 'day-btn' + (hari === todayName ? ' today-marker' : '') + (hari === selectedHari ? ' active' : '');
+          btn.textContent = hari === todayName ? hari + ' ★' : hari;
           btn.onclick = () => {
             selectedHari = hari;
             document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
@@ -150,23 +193,24 @@
       }
       buildDayButtons();
 
-      // ── Load Data ─────────────────────────────────────────────────────
+      // ── Load Google Sheets ────────────────────────────────────────
       Papa.parse(sheetUrl + "&cache=" + Date.now(), {
         download: true, header: true, skipEmptyLines: true,
         complete(results) {
           jadwalData = results.data;
           const cols = results.meta.fields || [];
           document.getElementById('search-result').innerText = "Data siap. Silakan ketik nama dosen.";
-          document.getElementById('status-db').innerText = `Database: ${jadwalData.length} baris | Hari ini: ${todayName}`;
-          document.getElementById('debug-info').innerText = "Kolom: " + cols.join(" | ");
+          document.getElementById('status-db').innerText = `✅ ${jadwalData.length} baris | Hari ini: ${todayName}`;
+          dbg('Data loaded: ' + jadwalData.length + ' rows');
+          dbg('Columns: ' + cols.join(', '));
         },
         error(err) {
           document.getElementById('search-result').innerText = "❌ Gagal memuat data.";
-          document.getElementById('status-db').innerText = "ERROR: " + err.message;
+          dbg('CSV ERROR: ' + err.message);
         }
       });
 
-      // ── Search ────────────────────────────────────────────────────────
+      // ── Search ────────────────────────────────────────────────────
       function searchDosen() {
         const input     = document.getElementById('dosen-input').value.toLowerCase().trim();
         const resultDiv = document.getElementById('search-result');
@@ -184,26 +228,21 @@
           const isToday = selectedHari === todayName;
           let html = `<b style="color:#FFD700">Jadwal ${isToday ? 'Hari Ini ' : ''}(${selectedHari}):</b><br><br>`;
           matches.forEach(m => {
-            const ruang   = (m["Ruang"] || "").trim();
-            const lokasi  = lokasiRuang[ruang];
-            const hasNav  = !!lokasi;
+            const ruang  = (m["Ruang"] || "").trim();
+            const lok    = lokasiRuang[ruang];
             html += `<div class="jadwal-item">
-              <b>📍 Ruang: ${ruang}</b>
-              ${hasNav ? `<span style="color:#FFD700;font-size:11px"> — ${lokasi.gedung} ${lokasi.lantai}</span>` : ''}
-              <br>🕐 Jam: ${m["Jam"] || '?'}<br>
-              📚 ${m["MATA KULIAH"] || '?'}<br>
+              <b>📍 ${ruang}</b>${lok ? `<span style="color:#FFD700;font-size:11px"> · ${lok.gedung} ${lok.lantai}</span>` : ''}<br>
+              🕐 ${m["Jam"] || '?'} &nbsp;|&nbsp; 📚 ${m["MATA KULIAH"] || '?'}<br>
               <small>Kelas: ${m["Kelas"] || '-'}</small><br>
-              ${hasNav
+              ${lok
                 ? `<button class="nav-btn" onclick="showNav('${ruang}')">🧭 Navigasi ke ${ruang}</button>`
-                : `<small style="color:#888">Navigasi tidak tersedia untuk ruangan ini</small>`
-              }
+                : `<small style="color:#666">Navigasi tidak tersedia</small>`}
             </div>`;
           });
           resultDiv.innerHTML = html;
         } else {
           const allHari = [...new Set(
-            jadwalData
-              .filter(r => (r["Dosen"]||"").toLowerCase().trim().includes(input))
+            jadwalData.filter(r => (r["Dosen"]||"").toLowerCase().trim().includes(input))
               .map(r => (r["Hari"]||"").trim()).filter(Boolean)
           )];
           resultDiv.innerHTML = allHari.length > 0
@@ -212,12 +251,11 @@
         }
       }
 
-      // ── Navigasi Panel ────────────────────────────────────────────────
+      // ── Nav Panel ─────────────────────────────────────────────────
       function showNav(ruang) {
         const lok = lokasiRuang[ruang];
         if (!lok) return;
         activeRuang = ruang;
-
         document.getElementById('nav-title').textContent  = `Navigasi ke ${ruang}`;
         document.getElementById('nav-lantai').textContent = `${lok.gedung} — ${lok.lantai}`;
         document.getElementById('nav-info').innerHTML =
@@ -225,85 +263,113 @@
            <b>Lantai:</b> ${lok.lantai}<br>
            <b>Koordinat:</b> ${lok.lat.toFixed(6)}, ${lok.lng.toFixed(6)}<br><br>
            🪜 ${petunjukLantai[lok.lantai] || ''}`;
-
         document.getElementById('nav-panel').style.display = 'block';
+        dbg('showNav: ' + ruang);
       }
 
       function closeNav() {
         document.getElementById('nav-panel').style.display = 'none';
-        clearARMarkers();
-        document.getElementById('ar-status').style.display = 'none';
       }
 
-      // ── AR Navigator ──────────────────────────────────────────────────
+      // ── AR ────────────────────────────────────────────────────────
       function startAR() {
         if (!activeRuang) return;
         const lok = lokasiRuang[activeRuang];
+        dbg('startAR called for ' + activeRuang);
 
-        // Minta izin GPS
         if (!navigator.geolocation) {
-          alert("GPS tidak didukung di browser ini.");
+          alert("GPS tidak didukung browser ini.");
+          dbg('ERROR: geolocation not supported');
           return;
         }
 
+        dbg('Requesting GPS...');
         navigator.geolocation.getCurrentPosition(
           pos => {
-            clearARMarkers();
+            dbg('GPS OK: ' + pos.coords.latitude.toFixed(6) + ', ' + pos.coords.longitude.toFixed(6));
+            dbg('Accuracy: ' + pos.coords.accuracy + 'm');
+            closeNav();
             placeARMarker(activeRuang, lok);
-            document.getElementById('nav-panel').style.display = 'none';
-            document.getElementById('ar-status').style.display = 'block';
-            document.getElementById('ar-status').textContent =
-              `📍 AR aktif → ${activeRuang} (${lok.lantai}) | Arahkan kamera ke gedung ${lok.gedung}`;
+            document.getElementById('ar-bar').style.display = 'block';
+            document.getElementById('ar-bar-text').textContent =
+              `📍 AR aktif → ${activeRuang} (${lok.lantai}) | Arahkan ke Gedung ${lok.gedung}`;
+            arActive = true;
           },
           err => {
-            alert("Izin GPS diperlukan untuk AR Navigator.\nAktifkan lokasi di browser kamu.");
+            dbg('GPS ERROR code=' + err.code + ' msg=' + err.message);
+            // Tampilkan debug panel otomatis saat GPS error
+            document.getElementById('debug-panel').style.display = 'block';
+            let msg = "GPS gagal: ";
+            if (err.code === 1) msg += "Izin lokasi ditolak. Buka Pengaturan browser → izinkan Lokasi.";
+            else if (err.code === 2) msg += "Posisi tidak dapat ditentukan. Pastikan GPS aktif.";
+            else if (err.code === 3) msg += "Timeout. Pindah ke tempat yang lebih terbuka lalu coba lagi.";
+            alert(msg);
           },
-          { enableHighAccuracy: true }
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
       }
 
       function placeARMarker(ruang, lok) {
-        const markersEl = document.getElementById('ar-markers');
+        // Hapus marker lama
+        const old = document.getElementById('ar-marker-entity');
+        if (old) old.parentNode.removeChild(old);
 
-        // Entity panah + label di koordinat GPS ruangan
+        const scene = document.getElementById('ar-scene');
+
         const entity = document.createElement('a-entity');
+        entity.id = 'ar-marker-entity';
         entity.setAttribute('gps-entity-place', `latitude: ${lok.lat}; longitude: ${lok.lng}`);
-        entity.setAttribute('look-at', '[gps-camera]');
 
-        // Label ruangan
-        const label = document.createElement('a-text');
-        label.setAttribute('value', `⬆ ${ruang}\n${lok.gedung} · ${lok.lantai}`);
-        label.setAttribute('align', 'center');
-        label.setAttribute('color', '#FFD700');
-        label.setAttribute('width', '12');
-        label.setAttribute('position', '0 1.5 0');
+        // Label teks
+        const text = document.createElement('a-text');
+        text.setAttribute('value', `${ruang}\n${lok.gedung} · ${lok.lantai}`);
+        text.setAttribute('align', 'center');
+        text.setAttribute('color', '#FFD700');
+        text.setAttribute('width', '14');
+        text.setAttribute('position', '0 3 0');
+        text.setAttribute('look-at', '#cam');
 
-        // Panah
+        // Panah (cone)
         const cone = document.createElement('a-cone');
         cone.setAttribute('color', '#FFD700');
-        cone.setAttribute('radius-bottom', '0.3');
-        cone.setAttribute('radius-top', '0');
-        cone.setAttribute('height', '0.8');
-        cone.setAttribute('position', '0 0.5 0');
-        cone.setAttribute('rotation', '0 0 180');
+        cone.setAttribute('radius-bottom', '0.5');
+        cone.setAttribute('radius-top', '0.05');
+        cone.setAttribute('height', '1.5');
+        cone.setAttribute('position', '0 1.5 0');
+        cone.setAttribute('rotation', '180 0 0');
 
-        // Lingkaran base
-        const circle = document.createElement('a-cylinder');
-        circle.setAttribute('color', '#1a1a1a');
-        circle.setAttribute('radius', '0.5');
-        circle.setAttribute('height', '0.05');
-        circle.setAttribute('position', '0 0 0');
+        // Tiang
+        const cylinder = document.createElement('a-cylinder');
+        cylinder.setAttribute('color', '#FFD700');
+        cylinder.setAttribute('radius', '0.1');
+        cylinder.setAttribute('height', '2');
+        cylinder.setAttribute('position', '0 0 0');
 
-        entity.appendChild(label);
+        entity.appendChild(text);
         entity.appendChild(cone);
-        entity.appendChild(circle);
-        markersEl.appendChild(entity);
+        entity.appendChild(cylinder);
+        scene.appendChild(entity);
+
+        dbg('AR marker placed at ' + lok.lat + ', ' + lok.lng);
       }
 
-      function clearARMarkers() {
-        const el = document.getElementById('ar-markers');
-        while (el.firstChild) el.removeChild(el.firstChild);
+      function stopAR() {
+        const old = document.getElementById('ar-marker-entity');
+        if (old) old.parentNode.removeChild(old);
+        document.getElementById('ar-bar').style.display = 'none';
+        arActive = false;
+        dbg('AR stopped');
       }
+
+      // Tombol debug tersembunyi — ketuk judul 3x untuk buka
+      let tapCount = 0;
+      document.querySelector('h2').addEventListener('click', () => {
+        tapCount++;
+        if (tapCount >= 3) {
+          document.getElementById('debug-panel').style.display = 'block';
+          tapCount = 0;
+        }
+      });
     </script>
   </body>
 </html>
