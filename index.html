@@ -5,7 +5,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <style>
-    /* ── Dasar ── */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #000; font-family: sans-serif; overflow: hidden; }
 
@@ -14,50 +13,38 @@
     }
     #camera-view video { width: 100%; height: 100%; object-fit: cover; }
 
-    /* ── AR Overlay & Panah Baru ── */
     #ar-overlay {
       display: none; position: fixed; inset: 0; z-index: 100; pointer-events: none;
     }
-    
     #ar-arrow-wrap {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      /* Menyesuaikan titik tengah agar rotasi panah sempurna */
+      position: absolute; top: 50%; left: 50%;
       transform: translate(-50%, -60%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 15px;
-      pointer-events: none;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
     }
-
     #ar-arrow {
-      /* Bayangan Glow agar panah terlihat 'menyala' di atas kamera */
+      width: 0; height: 0;
+      border-left: 45px solid transparent;
+      border-right: 45px solid transparent;
+      border-bottom: 90px solid #932520;
       filter: drop-shadow(0 0 16px rgba(255,215,0,0.95));
-      /* Animasi halus saat panah berputar */
       transition: transform 0.25s ease;
     }
-
     #ar-label {
       background: rgba(0,0,0,0.8); color: #FFD700;
       padding: 8px 18px; border-radius: 12px; font-size: 15px;
       font-weight: bold; border: 1.5px solid #FFD700; text-align: center; line-height: 1.6;
     }
-
     #ar-info-bar {
       position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%);
       width: 88%; background: rgba(0,0,0,0.8); border: 1px solid #FFD700;
       border-radius: 12px; padding: 10px 14px; color: white;
       font-size: 13px; text-align: center; line-height: 1.8;
     }
-
     #ar-compass-bar {
       position: absolute; top: 0; left: 0; right: 0;
       background: rgba(0,0,0,0.75); padding: 10px;
       color: #aaa; font-size: 12px; text-align: center;
     }
-
     #btn-stop-ar {
       position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
       padding: 10px 30px; border-radius: 20px; background: rgba(220,50,50,0.9);
@@ -65,104 +52,166 @@
       cursor: pointer; pointer-events: all;
     }
 
-    /* ── UI Jadwal & Panel (Sama seperti sebelumnya) ── */
+    /* ── iOS Compass Permission Popup ── */
+    #ios-compass-popup {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,0.85); align-items: center; justify-content: center;
+    }
+    #ios-compass-popup.show { display: flex; }
+    .ios-popup-box {
+      background: #1a1a1a; border: 2px solid #FFD700; border-radius: 16px;
+      padding: 24px 20px; width: 88%; text-align: center; color: white;
+    }
+    .ios-popup-box h3 { color: #FFD700; margin-bottom: 10px; font-size: 16px; }
+    .ios-popup-box p  { font-size: 13px; color: #ccc; line-height: 1.6; margin-bottom: 18px; }
+    #btn-allow-compass {
+      width: 100%; padding: 13px; border-radius: 10px; background: #FFD700;
+      color: #111; font-weight: bold; font-size: 15px; border: none; cursor: pointer;
+    }
+
+    /* ── UI Jadwal ── */
     #ui-overlay {
       position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
       background: rgba(0,0,0,0.95); color: white; padding: 15px;
       border-radius: 15px; z-index: 500; width: 92%;
       border: 2px solid #FFD700; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     }
-    input { width: 100%; padding: 11px; margin-top: 10px; border-radius: 8px; border: 2px solid #444; background: #222; color: white; }
+    #ui-overlay h2 { font-size: 14px; color: #FFD700; text-align: center; }
+    input {
+      width: 100%; padding: 11px; margin-top: 10px; border-radius: 8px;
+      border: 2px solid #444; background: #222; color: white; font-size: 14px;
+    }
     #day-selector { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
-    .day-btn { flex: 1; min-width: 44px; padding: 7px 2px; border-radius: 8px; border: 2px solid #444; background: #222; color: #aaa; font-size: 11px; cursor: pointer; }
+    .day-btn {
+      flex: 1; min-width: 44px; padding: 7px 2px; border-radius: 8px;
+      border: 2px solid #444; background: #222; color: #aaa;
+      font-size: 11px; cursor: pointer; text-align: center;
+    }
     .day-btn.active { border-color: #FFD700; background: #FFD700; color: #111; font-weight: bold; }
-    #search-result { margin-top: 10px; font-size: 13px; max-height: 300px; overflow-y: auto; color: #00FF00; }
-    .jadwal-item { background: rgba(255,255,255,0.07); padding: 10px; margin-bottom: 8px; border-radius: 8px; border-left: 4px solid #FFD700; }
-    .nav-btn { margin-top: 8px; width: 100%; padding: 9px; border-radius: 6px; background: #FFD700; color: #111; font-weight: bold; border: none; cursor: pointer; }
-    
+    .day-btn.today-marker { border-color: #888; color: #fff; }
+    #search-result {
+      margin-top: 10px; font-size: 13px; max-height: 300px; overflow-y: auto; color: #00FF00;
+    }
+    .jadwal-item {
+      background: rgba(255,255,255,0.07); padding: 10px; margin-bottom: 8px;
+      border-radius: 8px; border-left: 4px solid #FFD700;
+    }
+    .nav-btn {
+      margin-top: 8px; width: 100%; padding: 9px; border-radius: 6px;
+      background: #FFD700; color: #111; font-weight: bold; font-size: 13px;
+      border: none; cursor: pointer;
+    }
+    #status-db { font-size: 10px; color: #555; margin-top: 5px; display: block; }
+
+    /* ── Panel Navigasi ── */
     #nav-panel {
       display: none; position: fixed; bottom: 0; left: 0; right: 0;
       background: rgba(0,0,0,0.97); border-top: 2px solid #FFD700;
       padding: 16px; z-index: 600; border-radius: 16px 16px 0 0; color: white;
     }
-
-    /* iOS Compass Popup */
-    #ios-compass-popup { display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; }
-    #ios-compass-popup.show { display: flex; }
-    .ios-popup-box { background: #1a1a1a; border: 2px solid #FFD700; border-radius: 16px; padding: 24px 20px; width: 88%; text-align: center; color: white; }
-    #btn-allow-compass { width: 100%; padding: 13px; border-radius: 10px; background: #FFD700; color: #111; font-weight: bold; border: none; }
+    #nav-panel h3 { color: #FFD700; margin-bottom: 6px; }
+    .lantai-badge {
+      display: inline-block; background: #FFD700; color: #111;
+      font-weight: bold; padding: 3px 10px; border-radius: 20px; font-size: 13px; margin-bottom: 10px;
+    }
+    .nav-info { font-size: 13px; color: #ccc; line-height: 1.8; margin-bottom: 12px; }
+    .btn-ar-start {
+      width: 100%; padding: 12px; border-radius: 8px; background: #FFD700;
+      color: #111; font-weight: bold; font-size: 14px; border: none; cursor: pointer; margin-bottom: 8px;
+    }
+    .btn-nav-close {
+      width: 100%; padding: 10px; border-radius: 8px; background: #333;
+      color: #fff; border: 1px solid #555; font-size: 14px; cursor: pointer;
+    }
   </style>
 </head>
 <body>
 
+  <!-- Kamera -->
   <div id="camera-view"><video id="cam-video" autoplay playsinline muted></video></div>
 
+  <!-- AR Overlay -->
   <div id="ar-overlay">
     <div id="ar-compass-bar">
       🧭 Heading: <span id="txt-heading">--</span>° &nbsp;|&nbsp;
-      Arah: <span id="txt-bearing">--</span>° &nbsp;|&nbsp;
+      Arah tujuan: <span id="txt-bearing">--</span>° &nbsp;|&nbsp;
       Jarak: <span id="txt-dist">--</span>
     </div>
-    
     <div id="ar-arrow-wrap">
-      <svg id="ar-arrow" width="100" height="120" viewBox="0 0 100 120">
-        <path d="M50 5 L95 55 L65 55 L65 115 L35 115 L35 55 L5 55 Z" fill="#FFD700" stroke="#000" stroke-width="2" />
-      </svg>
-      <div id="ar-label">Menunggu GPS...</div>
+      <div id="ar-arrow"></div>
+      <div id="ar-label">Menunggu GPS & kompas...</div>
     </div>
-
     <div id="ar-info-bar">--</div>
     <button id="btn-stop-ar" onclick="stopAR()">✕ Matikan AR</button>
   </div>
 
-  <div id="ui-overlay">
-    <h2>🎓 JADWAL TI UMY - AR NAVIGATOR</h2>
-    <input type="text" id="dosen-input" placeholder="Cari nama dosen..." oninput="searchDosen()">
-    <div id="day-selector"></div>
-    <div id="search-result">Memuat database...</div>
-    <span id="status-db" style="font-size: 10px; color: #555;">Status: Memuat...</span>
-  </div>
-
-  <div id="nav-panel">
-    <h3 id="nav-title">Navigasi</h3>
-    <div id="nav-lantai" style="background:#FFD700; color:#111; padding:3px 10px; border-radius:20px; display:inline-block; font-size:12px; margin-bottom:10px;"></div>
-    <div id="nav-info" style="font-size:13px; color:#ccc; margin-bottom:15px;"></div>
-    <button style="width:100%; padding:12px; background:#FFD700; color:#111; font-weight:bold; border:none; border-radius:8px; margin-bottom:10px;" onclick="startAR()">📷 Aktifkan AR Navigator</button>
-    <button style="width:100%; padding:10px; background:#333; color:#fff; border:none; border-radius:8px;" onclick="closeNav()">✕ Tutup</button>
-  </div>
-
+  <!-- iOS Compass Permission Popup -->
   <div id="ios-compass-popup">
     <div class="ios-popup-box">
-      <h3>🧭 Izin Kompas</h3>
-      <p>Izin diperlukan agar panah navigasi bisa menunjukkan arah yang benar.</p>
-      <button id="btn-allow-compass" onclick="grantCompassIOS()">Izinkan</button>
+      <h3>🧭 Izin Kompas Diperlukan</h3>
+      <p>iPhone membutuhkan izin khusus untuk mengakses kompas.<br>
+         Tap tombol di bawah untuk mengizinkan, lalu AR Navigator akan aktif otomatis.</p>
+      <button id="btn-allow-compass" onclick="grantCompassIOS()">
+        Izinkan Akses Kompas
+      </button>
     </div>
   </div>
 
-<script>
-// (Seluruh logika JavaScript tetap sama seperti kode awal Anda)
-// Pastikan lokasiRuang, petunjukLantai, dan fungsi navigasi tetap ada di bawah sini.
+  <!-- UI Jadwal -->
+  <div id="ui-overlay">
+    <h2>🎓 CARI JADWAL DOSEN TI UMY</h2>
+    <input type="text" id="dosen-input" placeholder="Ketik nama dosen (misal: Nasyan)..." oninput="searchDosen()">
+    <div id="day-selector"></div>
+    <div id="search-result">Menghubungkan ke Google Sheets...</div>
+    <span id="status-db">Status: Memuat...</span>
+  </div>
 
+  <!-- Panel Navigasi -->
+  <div id="nav-panel">
+    <h3 id="nav-title">Navigasi ke Ruangan</h3>
+    <div id="nav-lantai" class="lantai-badge"></div>
+    <div id="nav-info" class="nav-info"></div>
+    <button class="btn-ar-start" onclick="startAR()">📷 Aktifkan AR Navigator</button>
+    <button class="btn-nav-close" onclick="closeNav()">✕ Tutup</button>
+  </div>
+
+<script>
+// ── Data Ruangan ──────────────────────────────────────────────────────
 const lokasiRuang = {
-  "F4.001": { lat:-7.80929638, lng:110.32205151, lantai:"Dasar", gedung:"F4" },
-  "F4.002": { lat:-7.80925054, lng:110.32208102, lantai:"Dasar", gedung:"F4" },
-  "F4.003": { lat:-7.80921201, lng:110.32210381, lantai:"Dasar", gedung:"F4" },
-  "F6.001": { lat:-7.80889114, lng:110.32207565, lantai:"Dasar", gedung:"F6" },
-  "F6.002": { lat:-7.80904061, lng:110.32206291, lantai:"Dasar", gedung:"F6" },
+  "F4.001": { lat:-7.80929638, lng:110.32205151, lantai:"Dasar",    gedung:"F4" },
+  "F4.002": { lat:-7.80925054, lng:110.32208102, lantai:"Dasar",    gedung:"F4" },
+  "F4.003": { lat:-7.80921201, lng:110.32210381, lantai:"Dasar",    gedung:"F4" },
+  "F6.001": { lat:-7.80889114, lng:110.32207565, lantai:"Dasar",    gedung:"F6" },
+  "F6.002": { lat:-7.80904061, lng:110.32206291, lantai:"Dasar",    gedung:"F6" },
+  "F6.003": { lat:-7.80901337, lng:110.32197507, lantai:"Dasar",    gedung:"F6" },
+  "F6.004": { lat:-7.80898547, lng:110.32194489, lantai:"Dasar",    gedung:"F6" },
   "F6.101": { lat:-7.80888294, lng:110.32199937, lantai:"Lantai 1", gedung:"F6" },
-  "F6.202": { lat:-7.80905168, lng:110.32205167, lantai:"Lantai 2", gedung:"F6" }
+  "F6.102": { lat:-7.80888892, lng:110.32205435, lantai:"Lantai 1", gedung:"F6" },
+  "F6.103": { lat:-7.80890619, lng:110.32209794, lantai:"Lantai 1", gedung:"F6" },
+  "F6.202": { lat:-7.80905168, lng:110.32205167, lantai:"Lantai 2", gedung:"F6" },
+  "F6.203": { lat:-7.80902245, lng:110.32199266, lantai:"Lantai 2", gedung:"F6" },
+  "F6.204": { lat:-7.80899521, lng:110.32194773, lantai:"Lantai 2", gedung:"F6" },
 };
 const petunjukLantai = {
-  "Dasar": "Ruangan di lantai dasar.",
-  "Lantai 1": "Naik ke Lantai 1 via tangga lobi.",
-  "Lantai 2": "Naik ke Lantai 2 via tangga lobi."
+  "Dasar":    "Ruangan di lantai dasar. Tidak perlu naik tangga.",
+  "Lantai 1": "Naik ke Lantai 1 via tangga/lift di lobi utama gedung.",
+  "Lantai 2": "Naik ke Lantai 2 via tangga/lift di lobi utama gedung.",
 };
 
-const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTayPnRtpp9N4qw7y73V7KS0xEY1kXtlDAGMCm4_IqzVWH_QYS-uVCZQRRZ62M3bQ/pub?output=csv";
-let jadwalData = [], activeRuang = null, userLat = null, userLng = null, userHeading = null, gpsWatcher = null, arLoop = null;
+// ── State ─────────────────────────────────────────────────────────────
+const sheetUrl  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTayPnRtpp9N4qw7y73V7KS0xEY1kXtlDAGMCm4_IqzVWH_QYS-uVCZQRRZ62M3bQ/pub?output=csv";
+let jadwalData  = [];
+let activeRuang = null;
+let userLat = null, userLng = null;
+let userHeading = null;
+let gpsWatcher  = null;
+let arLoop      = null;
+let pendingARStart = false; // flag: tunggu izin kompas iOS selesai
 
-const hariList = ["Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
-const todayName = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"][new Date().getDay()];
+// ── Hari ──────────────────────────────────────────────────────────────
+const hariList   = ["Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+const dayNames   = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+const todayName  = dayNames[new Date().getDay()];
 let selectedHari = hariList.includes(todayName) ? todayName : "Senin";
 
 function buildDayButtons() {
@@ -170,7 +219,7 @@ function buildDayButtons() {
   hariList.forEach(hari => {
     const btn = document.createElement('button');
     btn.className = 'day-btn'+(hari===todayName?' today-marker':'')+(hari===selectedHari?' active':'');
-    btn.textContent = hari;
+    btn.textContent = hari===todayName ? hari+' ★' : hari;
     btn.onclick = () => {
       selectedHari = hari;
       document.querySelectorAll('.day-btn').forEach(b=>b.classList.remove('active'));
@@ -182,120 +231,210 @@ function buildDayButtons() {
 }
 buildDayButtons();
 
+// ── Load Jadwal ───────────────────────────────────────────────────────
 Papa.parse(sheetUrl + "&cache=" + Date.now(), {
   download:true, header:true, skipEmptyLines:true,
-  complete(r) { 
-    jadwalData = r.data; 
-    document.getElementById('search-result').innerText = "Database siap.";
-    document.getElementById('status-db').innerText = `✅ ${jadwalData.length} baris dimuat.`;
+  complete(r) {
+    jadwalData = r.data;
+    document.getElementById('search-result').innerText = "Data siap. Silakan ketik nama dosen.";
+    document.getElementById('status-db').innerText = `✅ ${jadwalData.length} baris | Hari ini: ${todayName}`;
+  },
+  error() {
+    document.getElementById('search-result').innerText = "❌ Gagal memuat data.";
   }
 });
 
+// ── Search ────────────────────────────────────────────────────────────
 function searchDosen() {
   const input = document.getElementById('dosen-input').value.toLowerCase().trim();
-  const el = document.getElementById('search-result');
-  if (input.length < 3) return;
+  const el    = document.getElementById('search-result');
+  if (input.length < 3) { el.innerHTML = "Ketik minimal 3 huruf..."; return; }
   const hl = selectedHari.toLowerCase();
-  const matches = jadwalData.filter(r => 
-    (r["Dosen"]||"").toLowerCase().includes(input) && 
-    (r["Hari"]||"").toLowerCase().trim() === hl
+  const matches = jadwalData.filter(r =>
+    (r["Dosen"]||"").toLowerCase().trim().includes(input) &&
+    (r["Hari"] ||"").toLowerCase().trim() === hl
   );
   if (matches.length > 0) {
-    let html = `<b>Jadwal ${selectedHari}:</b><br><br>`;
+    let html = `<b style="color:#FFD700">Jadwal ${selectedHari===todayName?'Hari Ini ':''}(${selectedHari}):</b><br><br>`;
     matches.forEach(m => {
-      const r = (m["Ruang"]||"").trim();
-      const lok = lokasiRuang[r];
+      const ruang = (m["Ruang"]||"").trim();
+      const lok   = lokasiRuang[ruang];
       html += `<div class="jadwal-item">
-        <b>📍 ${r}</b> ${lok ? `<small>(${lok.lantai})</small>` : ''}<br>
-        🕐 ${m["Jam"]||'?'}<br>
-        ${lok ? `<button class="nav-btn" onclick="showNav('${r}')">🧭 Navigasi</button>` : ''}
+        <b>📍 ${ruang}</b>${lok?`<span style="color:#FFD700;font-size:11px"> · ${lok.gedung} ${lok.lantai}</span>`:''}
+        <br>🕐 ${m["Jam"]||'?'} &nbsp;|&nbsp; 📚 ${m["MATA KULIAH"]||'?'}
+        <br><small>Kelas: ${m["Kelas"]||'-'}</small><br>
+        ${lok
+          ? `<button class="nav-btn" onclick="showNav('${ruang}')">🧭 Navigasi ke ${ruang}</button>`
+          : `<small style="color:#555">Navigasi tidak tersedia</small>`}
       </div>`;
     });
     el.innerHTML = html;
-  } else { el.innerHTML = "Tidak ada jadwal."; }
-}
-
-function showNav(ruang) {
-  activeRuang = ruang;
-  const lok = lokasiRuang[ruang];
-  document.getElementById('nav-title').textContent = `Menuju ${ruang}`;
-  document.getElementById('nav-lantai').textContent = `${lok.gedung} - ${lok.lantai}`;
-  document.getElementById('nav-info').innerText = petunjukLantai[lok.lantai];
-  document.getElementById('nav-panel').style.display = 'block';
-}
-
-function closeNav() { document.getElementById('nav-panel').style.display = 'none'; }
-
-async function startAR() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    document.getElementById('cam-video').srcObject = stream;
-    document.getElementById('camera-view').style.display = 'block';
-    document.getElementById('ar-overlay').style.display = 'block';
-    document.getElementById('ui-overlay').style.display = 'none';
-    closeNav();
-    
-    gpsWatcher = navigator.geolocation.watchPosition(p => {
-      userLat = p.coords.latitude; userLng = p.coords.longitude;
-    }, null, { enableHighAccuracy: true });
-
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    if (isIOS && typeof DeviceOrientationEvent.requestPermission === 'function') {
-      document.getElementById('ios-compass-popup').classList.add('show');
-    } else {
-      window.addEventListener('deviceorientationabsolute', handleOri, true);
-      window.addEventListener('deviceorientation', handleOri, true);
-    }
-    
-    arLoop = setInterval(() => {
-      if (userLat && activeRuang) {
-        const lok = lokasiRuang[activeRuang];
-        updateArrow(lok);
-      }
-    }, 200);
-  } catch (e) { alert("Error: " + e); }
-}
-
-async function grantCompassIOS() {
-  const res = await DeviceOrientationEvent.requestPermission();
-  if (res === 'granted') {
-    window.addEventListener('deviceorientation', handleOri, true);
-    document.getElementById('ios-compass-popup').classList.remove('show');
+  } else {
+    const lain = [...new Set(jadwalData
+      .filter(r=>(r["Dosen"]||"").toLowerCase().trim().includes(input))
+      .map(r=>(r["Hari"]||"").trim()).filter(Boolean))];
+    el.innerHTML = lain.length
+      ? `Tidak ada jadwal "<b>${input}</b>" hari <b>${selectedHari}</b>.<br><small style="color:#aaa">Tersedia di: ${lain.join(', ')}</small>`
+      : `Nama "<b>${input}</b>" tidak ditemukan.`;
   }
 }
 
-function handleOri(e) {
-  userHeading = e.webkitCompassHeading || (360 - e.alpha);
+// ── Nav Panel ─────────────────────────────────────────────────────────
+function showNav(ruang) {
+  const lok = lokasiRuang[ruang]; if (!lok) return;
+  activeRuang = ruang;
+  document.getElementById('nav-title').textContent  = `Navigasi ke ${ruang}`;
+  document.getElementById('nav-lantai').textContent = `${lok.gedung} — ${lok.lantai}`;
+  document.getElementById('nav-info').innerHTML =
+    `<b>Gedung:</b> ${lok.gedung} &nbsp;|&nbsp; <b>Lantai:</b> ${lok.lantai}<br>
+     🪜 ${petunjukLantai[lok.lantai]||''}`;
+  document.getElementById('nav-panel').style.display = 'block';
+}
+function closeNav() { document.getElementById('nav-panel').style.display = 'none'; }
+
+// ── AR Start ──────────────────────────────────────────────────────────
+async function startAR() {
+  if (!activeRuang) return;
+
+  // 1. Minta kamera dulu
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' }, audio:false });
+    document.getElementById('cam-video').srcObject = stream;
+    document.getElementById('camera-view').style.display = 'block';
+  } catch(e) {
+    alert("Izin kamera diperlukan."); return;
+  }
+
+  // 2. Minta GPS
+  if (!navigator.geolocation) { alert("GPS tidak didukung."); return; }
+  gpsWatcher = navigator.geolocation.watchPosition(
+    pos => { userLat = pos.coords.latitude; userLng = pos.coords.longitude; },
+    err => { console.warn('GPS err', err.code); },
+    { enableHighAccuracy:true, maximumAge:1000 }
+  );
+
+  // 3. Cek apakah iOS → tampilkan popup izin kompas
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  if (isIOS && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // Simpan flag, tampilkan popup — izin HARUS dari tap langsung
+    pendingARStart = true;
+    closeNav();
+    document.getElementById('ios-compass-popup').classList.add('show');
+    return; // lanjut di grantCompassIOS()
+  }
+
+  // Non-iOS: langsung daftarkan listener kompas
+  registerCompass();
+  launchAROverlay();
 }
 
-function updateArrow(lok) {
-  const bearing = calcBearing(userLat, userLng, lok.lat, lok.lng);
-  const dist = calcDist(userLat, userLng, lok.lat, lok.lng);
-  const rot = (bearing - (userHeading || 0) + 360) % 360;
-  
-  document.getElementById('ar-arrow').style.transform = `rotate(${rot}deg)`;
-  document.getElementById('ar-label').innerText = `${activeRuang} (${Math.round(dist)}m)`;
-  document.getElementById('txt-heading').innerText = Math.round(userHeading || 0);
-  document.getElementById('txt-bearing').innerText = Math.round(bearing);
-  document.getElementById('txt-dist').innerText = Math.round(dist) + "m";
+// Dipanggil oleh tombol "Izinkan Akses Kompas" di popup iOS
+async function grantCompassIOS() {
+  document.getElementById('ios-compass-popup').classList.remove('show');
+  try {
+    const result = await DeviceOrientationEvent.requestPermission();
+    if (result === 'granted') {
+      registerCompass();
+      launchAROverlay();
+    } else {
+      alert("Izin kompas ditolak. Panah tidak bisa bergerak tanpa kompas.");
+      // Tetap jalankan AR tapi tanpa kompas (heading=0)
+      launchAROverlay();
+    }
+  } catch(e) {
+    console.warn('compass permission error:', e);
+    launchAROverlay();
+  }
 }
 
-function calcBearing(lat1, lon1, lat2, lon2) {
+function registerCompass() {
+  // Prioritas: deviceorientationabsolute (Android & iOS baru)
+  window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+  // Fallback: deviceorientation biasa
+  window.addEventListener('deviceorientation', handleOrientation, true);
+}
+
+function handleOrientation(e) {
+  if (e.webkitCompassHeading != null) {
+    // iOS: webkitCompassHeading = derajat dari Utara, clockwise — langsung pakai
+    userHeading = e.webkitCompassHeading;
+  } else if (e.absolute && e.alpha != null) {
+    // Android absolute
+    userHeading = (360 - e.alpha) % 360;
+  } else if (e.alpha != null) {
+    // Fallback
+    userHeading = (360 - e.alpha) % 360;
+  }
+}
+
+function launchAROverlay() {
+  closeNav();
+  document.getElementById('ar-overlay').style.display = 'block';
+  document.getElementById('ui-overlay').style.display = 'none';
+  const lok = lokasiRuang[activeRuang];
+  arLoop = setInterval(() => updateArrow(lok), 150);
+}
+
+// ── Hitung bearing & jarak ────────────────────────────────────────────
+function calcBearing(lat1, lng1, lat2, lng2) {
   const r = Math.PI/180;
-  const y = Math.sin((lon2-lon1)*r) * Math.cos(lat2*r);
-  const x = Math.cos(lat1*r)*Math.sin(lat2*r) - Math.sin(lat1*r)*Math.cos(lat2*r)*Math.cos((lon2-lon1)*r);
-  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  const dL = (lng2-lng1)*r;
+  const y  = Math.sin(dL)*Math.cos(lat2*r);
+  const x  = Math.cos(lat1*r)*Math.sin(lat2*r) - Math.sin(lat1*r)*Math.cos(lat2*r)*Math.cos(dL);
+  return (Math.atan2(y,x)*180/Math.PI + 360) % 360;
+}
+function calcDistance(lat1, lng1, lat2, lng2) {
+  const R=6371000, r=Math.PI/180;
+  const dLat=(lat2-lat1)*r, dLng=(lng2-lng1)*r;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
-function calcDist(lat1, lon1, lat2, lon2) {
-  const R = 6371000, r = Math.PI/180;
-  const dLat = (lat2-lat1)*r, dLon = (lon2-lon1)*r;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dLon/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+// ── Update Panah ──────────────────────────────────────────────────────
+function updateArrow(lok) {
+  if (userLat === null) {
+    document.getElementById('ar-label').textContent = "⏳ Menunggu GPS...";
+    return;
+  }
+
+  const bearing  = calcBearing(userLat, userLng, lok.lat, lok.lng);
+  const dist     = calcDistance(userLat, userLng, lok.lat, lok.lng);
+  const heading  = userHeading !== null ? userHeading : 0;
+  const rotation = (bearing - heading + 360) % 360;
+  const distText = dist < 1000 ? Math.round(dist)+'m' : (dist/1000).toFixed(1)+'km';
+
+  // Rotasi panah
+  document.getElementById('ar-arrow').style.transform = `rotate(${rotation}deg)`;
+
+  // Label
+  document.getElementById('ar-label').innerHTML = dist < 15
+    ? `📍 <b>Kamu sudah dekat!</b><br>${activeRuang} · ${lok.lantai}`
+    : `<b>${activeRuang}</b><br>${lok.gedung} · ${lok.lantai} · ${distText}`;
+
+  // Info bar
+  document.getElementById('ar-info-bar').innerHTML =
+    `🪜 ${petunjukLantai[lok.lantai]||''}<br>
+     <small style="color:#aaa">${userHeading===null ? '⚠️ Kompas belum aktif — gerakkan HP untuk kalibrasi' : '✅ Kompas aktif'}</small>`;
+
+  // Kompas bar
+  document.getElementById('txt-heading').textContent = Math.round(heading);
+  document.getElementById('txt-bearing').textContent = Math.round(bearing);
+  document.getElementById('txt-dist').textContent    = distText;
 }
 
+// ── Stop AR ───────────────────────────────────────────────────────────
 function stopAR() {
-  location.reload(); // Paling aman untuk reset kamera & GPS
+  clearInterval(arLoop);
+  if (gpsWatcher) navigator.geolocation.clearWatch(gpsWatcher);
+  window.removeEventListener('deviceorientationabsolute', handleOrientation, true);
+  window.removeEventListener('deviceorientation',         handleOrientation, true);
+  const v = document.getElementById('cam-video');
+  if (v.srcObject) v.srcObject.getTracks().forEach(t=>t.stop());
+  document.getElementById('camera-view').style.display = 'none';
+  document.getElementById('ar-overlay').style.display  = 'none';
+  document.getElementById('ui-overlay').style.display  = 'block';
+  userHeading = null; userLat = null; userLng = null;
+  gpsWatcher = null; arLoop = null;
 }
 </script>
 </body>
