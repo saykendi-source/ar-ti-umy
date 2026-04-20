@@ -75,10 +75,15 @@
       border: 2px solid #FFD700; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     }
     #ui-overlay h2 { font-size: 14px; color: #FFD700; text-align: center; }
-    input {
+    select#dosen-select {
       width: 100%; padding: 11px; margin-top: 10px; border-radius: 8px;
       border: 2px solid #444; background: #222; color: white; font-size: 14px;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23FFD700' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 12px center;
+      padding-right: 32px; cursor: pointer;
     }
+    select#dosen-select option { background: #222; color: white; }
     #day-selector { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
     .day-btn {
       flex: 1; min-width: 44px; padding: 7px 2px; border-radius: 8px;
@@ -137,18 +142,15 @@
     </div>
     <div id="ar-arrow-wrap">
       <div id="ar-arrow">
-        <svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
-          <!-- Shadow/base gelap -->
-          <polygon points="50,108 10,108 50,10" fill="rgba(0,0,0,0.25)"/>
-          <polygon points="50,108 90,108 50,10" fill="rgba(0,0,0,0.25)"/>
-          <!-- Sisi kiri: putih -->
-          <polygon points="50,8 8,105 50,85" fill="#FFFFFF"/>
-          <!-- Sisi kanan: kuning-oranye -->
-          <polygon points="50,8 92,105 50,85" fill="#F5A623"/>
-          <!-- Ekor kiri bawah gelap -->
-          <polygon points="8,105 50,85 50,108" fill="#D4D4D4"/>
-          <!-- Ekor kanan bawah gelap -->
-          <polygon points="92,105 50,85 50,108" fill="#C8831A"/>
+        <svg viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg">
+          <!-- Sayap kiri (merah terang) — melebar ke kiri bawah -->
+          <polygon points="50,5 2,75 50,52" fill="#CC0000"/>
+          <!-- Sayap kanan (merah gelap) — melebar ke kanan bawah -->
+          <polygon points="50,5 98,75 50,52" fill="#8B0000"/>
+          <!-- Ekor kiri (merah gelap) — runcing ke bawah kiri -->
+          <polygon points="2,75 50,52 50,105" fill="#8B0000"/>
+          <!-- Ekor kanan (lebih gelap) — runcing ke bawah kanan -->
+          <polygon points="98,75 50,52 50,105" fill="#5a0000"/>
         </svg>
       </div>
       <div id="ar-label">Menunggu GPS & kompas...</div>
@@ -172,7 +174,9 @@
   <!-- UI Jadwal -->
   <div id="ui-overlay">
     <h2>🎓 CARI JADWAL DOSEN TI UMY</h2>
-    <input type="text" id="dosen-input" placeholder="Ketik nama dosen (misal: Nasyan)..." oninput="searchDosen()">
+    <select id="dosen-select" onchange="searchDosen()">
+      <option value="">-- Pilih Nama Dosen --</option>
+    </select>
     <div id="day-selector"></div>
     <div id="search-result">Menghubungkan ke Google Sheets...</div>
     <span id="status-db">Status: Memuat...</span>
@@ -248,8 +252,21 @@ Papa.parse(sheetUrl + "&cache=" + Date.now(), {
   download:true, header:true, skipEmptyLines:true,
   complete(r) {
     jadwalData = r.data;
-    document.getElementById('search-result').innerText = "Data siap. Silakan ketik nama dosen.";
-    document.getElementById('status-db').innerText = `✅ ${jadwalData.length} baris | Hari ini: ${todayName}`;
+
+    // Ambil nama dosen unik, sort A-Z, isi dropdown
+    const dosenSet = [...new Set(
+      jadwalData.map(row => (row["Dosen"]||"").trim()).filter(Boolean)
+    )].sort();
+    const sel = document.getElementById('dosen-select');
+    dosenSet.forEach(nama => {
+      const opt = document.createElement('option');
+      opt.value = nama;
+      opt.textContent = nama;
+      sel.appendChild(opt);
+    });
+
+    document.getElementById('search-result').innerText = "Pilih nama dosen di atas.";
+    document.getElementById('status-db').innerText = `✅ ${jadwalData.length} baris | ${dosenSet.length} dosen | Hari ini: ${todayName}`;
   },
   error() {
     document.getElementById('search-result').innerText = "❌ Gagal memuat data.";
@@ -258,24 +275,28 @@ Papa.parse(sheetUrl + "&cache=" + Date.now(), {
 
 // ── Search ────────────────────────────────────────────────────────────
 function searchDosen() {
-  const input = document.getElementById('dosen-input').value.toLowerCase().trim();
-  const el    = document.getElementById('search-result');
-  if (input.length < 3) { el.innerHTML = "Ketik minimal 3 huruf..."; return; }
+  const selected = document.getElementById('dosen-select').value.trim();
+  const el       = document.getElementById('search-result');
+  if (!selected) { el.innerHTML = "Pilih nama dosen di atas."; return; }
+
   const hl = selectedHari.toLowerCase();
   const matches = jadwalData.filter(r =>
-    (r["Dosen"]||"").toLowerCase().trim().includes(input) &&
+    (r["Dosen"]||"").trim() === selected &&
     (r["Hari"] ||"").toLowerCase().trim() === hl
   );
+
   if (matches.length > 0) {
     let html = `<b style="color:#FFD700">Jadwal ${selectedHari===todayName?'Hari Ini ':''}(${selectedHari}):</b><br><br>`;
     matches.forEach(m => {
-      const ruang = (m["Ruang"]||"").trim();
-      const lok   = lokasiRuang[ruang];
+      const ruang  = (m["Ruang"]||"").trim();
+      const lok    = lokasiRuang[ruang];
+      const status = (m["Status Perkuliahan"] || m["status perkuliahan"] || m["Status"] || "").trim();
       html += `<div class="jadwal-item">
         <b>📍 ${ruang}</b>${lok?`<span style="color:#FFD700;font-size:11px"> · ${lok.gedung} ${lok.lantai}</span>`:''}
         <br>🕐 ${m["Jam"]||'?'} &nbsp;|&nbsp; 📚 ${m["MATA KULIAH"]||'?'}
-        <br><small>Kelas: ${m["Kelas"]||'-'}</small><br>
-        ${lok
+        <br><small>Kelas: ${m["Kelas"]||'-'}</small>
+        ${status ? `<br><span style="display:inline-block;margin-top:5px;padding:3px 8px;background:rgba(255,215,0,0.15);border:1px solid #FFD700;border-radius:6px;font-size:12px;color:#FFD700;">📋 ${status}</span>` : ''}
+        <br>${lok
           ? `<button class="nav-btn" onclick="showNav('${ruang}')">🧭 Navigasi ke ${ruang}</button>`
           : `<small style="color:#555">Navigasi tidak tersedia</small>`}
       </div>`;
@@ -283,11 +304,11 @@ function searchDosen() {
     el.innerHTML = html;
   } else {
     const lain = [...new Set(jadwalData
-      .filter(r=>(r["Dosen"]||"").toLowerCase().trim().includes(input))
+      .filter(r=>(r["Dosen"]||"").trim() === selected)
       .map(r=>(r["Hari"]||"").trim()).filter(Boolean))];
     el.innerHTML = lain.length
-      ? `Tidak ada jadwal "<b>${input}</b>" hari <b>${selectedHari}</b>.<br><small style="color:#aaa">Tersedia di: ${lain.join(', ')}</small>`
-      : `Nama "<b>${input}</b>" tidak ditemukan.`;
+      ? `Tidak ada jadwal <b>${selected}</b> hari <b>${selectedHari}</b>.<br><small style="color:#aaa">Tersedia di: ${lain.join(', ')}</small>`
+      : `Tidak ada data jadwal untuk dosen ini.`;
   }
 }
 
