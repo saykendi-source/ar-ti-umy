@@ -49,14 +49,19 @@
       const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ32Z9treiKtgIqpMnBjsYCwcMw88HYiA4r3mmonJQmeFB8jV1L0uIFKzlHcryqsg/pub?output=csv";
       let jadwalData = [];
 
-      // Mengambil data dengan cache-buster agar selalu terbaru
       Papa.parse(sheetUrl + "&cache=" + Date.now(), {
         download: true,
         header: true,
+        skipEmptyLines: true, // FIX 1: Lewati baris kosong agar tidak ada data null
         complete: function(results) {
           jadwalData = results.data;
           document.getElementById('search-result').innerText = "Data siap. Silakan ketik nama dosen.";
           document.getElementById('status-db').innerText = "Database: " + jadwalData.length + " baris dimuat.";
+        },
+        error: function(err) {
+          // FIX 2: Tambahkan error handler agar kelihatan kalau CSV gagal dimuat
+          document.getElementById('search-result').innerText = "Gagal memuat data: " + err.message;
+          document.getElementById('status-db').innerText = "Status: ERROR";
         }
       });
 
@@ -66,35 +71,37 @@
         
         // Mengambil hari ini
         const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-        const today = days[new Date().getDay()].toLowerCase();
+        const today = days[new Date().getDay()];
+        const todayLower = today.toLowerCase(); // untuk perbandingan
 
         if (input.length < 3) {
           resultDiv.innerHTML = "Ketik minimal 3 huruf nama dosen...";
           return;
         }
 
-        // Filter berdasarkan kolom 'Dosen' dan 'Waktu' sesuai file Anda
+        // FIX 3: Gunakan kolom "Hari" dan "Jam" yang benar sesuai struktur Excel,
+        //         bukan kolom "Waktu" yang tidak ada.
+        //         Tambahkan .trim().toLowerCase() untuk mengatasi spasi & kapitalisasi tidak konsisten.
         const matches = jadwalData.filter(row => {
-          const namaDosen = (row["Dosen"] || "").toLowerCase();
-          const infoWaktu = (row["Hari"] || "").toLowerCase();
+          const namaDosen = (row["Dosen"] || "").toLowerCase().trim();
+          const hariJadwal = (row["Hari"] || "").toLowerCase().trim(); // ✅ Kolom yang benar
           
-          // Mencari nama dosen DAN memastikan kata hari ini ada di kolom Waktu
-          return namaDosen.includes(input) && infoWaktu.includes(today);
+          return namaDosen.includes(input) && hariJadwal === todayLower;
         });
 
         if (matches.length > 0) {
           let html = `<b style="color:#FFD700">Jadwal Hari Ini (${today.toUpperCase()}):</b><br><br>`;
           matches.forEach(m => {
             html += `<div class="jadwal-item">
-                      <b>Ruang: ${m.Ruang || '?'}</b><br>
-                      Waktu: ${m.Waktu}<br>
+                      <b>Ruang: ${m["Ruang"] || '?'}</b><br>
+                      Jam: ${m["Jam"] || '?'}<br>
                       Matkul: ${m["MATA KULIAH"] || '?'}<br>
-                      <small>Kelas: ${m.Kelas || '-'}</small>
+                      <small>Kelas: ${m["Kelas"] || '-'}</small>
                     </div>`;
           });
           resultDiv.innerHTML = html;
         } else {
-          resultDiv.innerHTML = `Tidak ditemukan jadwal untuk "${input}" pada hari ${today}.`;
+          resultDiv.innerHTML = `Tidak ditemukan jadwal untuk "<b>${input}</b>" pada hari <b>${today}</b>.`;
         }
       }
     </script>
