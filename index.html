@@ -142,20 +142,35 @@
     </div>
     <div id="ar-arrow-wrap">
       <div id="ar-arrow">
-        <svg viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg">
-          <!-- Sayap kiri (merah terang) — melebar ke kiri bawah -->
-          <polygon points="50,5 2,75 50,52" fill="#CC0000"/>
-          <!-- Sayap kanan (merah gelap) — melebar ke kanan bawah -->
-          <polygon points="50,5 98,75 50,52" fill="#8B0000"/>
-          <!-- Ekor kiri (merah gelap) — runcing ke bawah kiri -->
-          <polygon points="2,75 50,52 50,105" fill="#8B0000"/>
-          <!-- Ekor kanan (lebih gelap) — runcing ke bawah kanan -->
-          <polygon points="98,75 50,52 50,105" fill="#5a0000"/>
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <!-- Panah miring seperti referensi: ujung kanan-atas, sayap kiri lebar, ekor kiri-bawah -->
+          <!-- Sayap atas-kiri ke ujung kanan (merah terang) -->
+          <polygon points="10,30 85,10 52,52" fill="#CC0000"/>
+          <!-- Sayap bawah-kiri ke ujung kanan (merah sangat gelap) -->
+          <polygon points="10,30 85,10 30,60" fill="#7a0000"/>
+          <!-- Ekor runcing kiri-bawah (merah gelap) -->
+          <polygon points="10,30 52,52 20,88" fill="#8B0000"/>
+          <!-- Cekungan dalam / shadow ekor kanan -->
+          <polygon points="52,52 30,60 20,88" fill="#4a0000"/>
         </svg>
       </div>
       <div id="ar-label">Menunggu GPS & kompas...</div>
     </div>
     <div id="ar-info-bar">--</div>
+
+    <!-- Tampilan nama ruangan saat sudah dekat -->
+    <div id="ar-nearby-label" style="
+      display:none; position:absolute; top:50%; left:50%;
+      transform:translate(-50%,-50%);
+      background:rgba(0,0,0,0.85); border:3px solid #CC0000;
+      border-radius:16px; padding:18px 24px; text-align:center;
+      color:white; z-index:200;">
+      <div style="font-size:13px;color:#aaa;margin-bottom:4px;">📍 Kamu sudah dekat dengan</div>
+      <div id="ar-nearby-ruang" style="font-size:28px;font-weight:bold;color:#CC0000;letter-spacing:2px;"></div>
+      <div id="ar-nearby-lantai" style="font-size:13px;color:#FFD700;margin-top:4px;"></div>
+      <div style="font-size:12px;color:#aaa;margin-top:8px;">Cari papan nama ruangan di sekitarmu</div>
+    </div>
+
     <button id="btn-stop-ar" onclick="stopAR()">✕ Matikan AR</button>
   </div>
 
@@ -290,7 +305,9 @@ function searchDosen() {
     matches.forEach(m => {
       const ruang  = (m["Ruang"]||"").trim();
       const lok    = lokasiRuang[ruang];
-      const status = (m["Status Perkuliahan"] || m["status perkuliahan"] || m["Status"] || "").trim();
+      // Cari kolom status secara dinamis (toleran terhadap perbedaan penulisan)
+      const statusKey = Object.keys(m).find(k => k.toLowerCase().includes('info') || k.toLowerCase().includes('status'));
+      const status = statusKey ? (m[statusKey]||"").trim() : "";
       html += `<div class="jadwal-item">
         <b>📍 ${ruang}</b>${lok?`<span style="color:#FFD700;font-size:11px"> · ${lok.gedung} ${lok.lantai}</span>`:''}
         <br>🕐 ${m["Jam"]||'?'} &nbsp;|&nbsp; 📚 ${m["MATA KULIAH"]||'?'}
@@ -423,6 +440,20 @@ function calcDistance(lat1, lng1, lat2, lng2) {
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
+// ── Voice Alert ───────────────────────────────────────────────────────
+let voiceAlertFired = false; // hanya bunyi sekali per sesi navigasi
+
+function speakAlert(ruang) {
+  if (!window.speechSynthesis) return;
+  const msg = new SpeechSynthesisUtterance(
+    `50 meter lagi, ruangan ${ruang} yang kamu cari akan segera terlihat.`
+  );
+  msg.lang  = 'id-ID';
+  msg.rate  = 0.95;
+  msg.pitch = 1;
+  window.speechSynthesis.speak(msg);
+}
+
 // ── Update Panah ──────────────────────────────────────────────────────
 function updateArrow(lok) {
   if (userLat === null) {
@@ -436,18 +467,43 @@ function updateArrow(lok) {
   const rotation = (bearing - heading + 360) % 360;
   const distText = dist < 1000 ? Math.round(dist)+'m' : (dist/1000).toFixed(1)+'km';
 
-  // Rotasi panah
-  document.getElementById('ar-arrow').style.transform = `rotate(${rotation}deg)`;
+  const nearbyLabel  = document.getElementById('ar-nearby-label');
+  const arrowWrap    = document.getElementById('ar-arrow-wrap');
 
-  // Label
-  document.getElementById('ar-label').innerHTML = dist < 15
-    ? `📍 <b>Kamu sudah dekat!</b><br>${activeRuang} · ${lok.lantai}`
-    : `<b>${activeRuang}</b><br>${lok.gedung} · ${lok.lantai} · ${distText}`;
+  // ── Sudah sangat dekat (< 15m): tampilkan label nama ruangan ──
+  if (dist < 15) {
+    arrowWrap.style.display  = 'none';
+    nearbyLabel.style.display = 'block';
+    document.getElementById('ar-nearby-ruang').textContent = activeRuang;
+    document.getElementById('ar-nearby-lantai').textContent = `${lok.gedung} · ${lok.lantai}`;
+    document.getElementById('ar-info-bar').innerHTML =
+      `✅ Kamu sudah tiba! &nbsp;|&nbsp; 🪜 ${petunjukLantai[lok.lantai]||''}`;
+  } else {
+    arrowWrap.style.display  = 'flex';
+    nearbyLabel.style.display = 'none';
 
-  // Info bar
-  document.getElementById('ar-info-bar').innerHTML =
-    `🪜 ${petunjukLantai[lok.lantai]||''}<br>
-     <small style="color:#aaa">${userHeading===null ? '⚠️ Kompas belum aktif — gerakkan HP untuk kalibrasi' : '✅ Kompas aktif'}</small>`;
+    // Rotasi panah — offset -45° karena SVG panah mengarah ke kanan-atas bukan atas
+    document.getElementById('ar-arrow').style.transform = `rotate(${rotation - 45}deg)`;
+
+    // Label jarak
+    document.getElementById('ar-label').innerHTML =
+      `<b>${activeRuang}</b><br>${lok.gedung} · ${lok.lantai} · ${distText}`;
+
+    // Info bar
+    document.getElementById('ar-info-bar').innerHTML =
+      `🪜 ${petunjukLantai[lok.lantai]||''}<br>
+       <small style="color:#aaa">${userHeading===null
+         ? '⚠️ Kompas belum aktif — gerakkan HP untuk kalibrasi'
+         : '✅ Kompas aktif'}</small>`;
+  }
+
+  // ── Voice alert tepat saat melewati 50m ──
+  if (dist <= 50 && dist > 15 && !voiceAlertFired) {
+    voiceAlertFired = true;
+    speakAlert(activeRuang);
+  }
+  // Reset flag kalau user menjauh lagi (> 80m)
+  if (dist > 80) voiceAlertFired = false;
 
   // Kompas bar
   document.getElementById('txt-heading').textContent = Math.round(heading);
@@ -463,11 +519,14 @@ function stopAR() {
   window.removeEventListener('deviceorientation',         handleOrientation, true);
   const v = document.getElementById('cam-video');
   if (v.srcObject) v.srcObject.getTracks().forEach(t=>t.stop());
-  document.getElementById('camera-view').style.display = 'none';
-  document.getElementById('ar-overlay').style.display  = 'none';
-  document.getElementById('ui-overlay').style.display  = 'block';
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  document.getElementById('camera-view').style.display  = 'none';
+  document.getElementById('ar-overlay').style.display   = 'none';
+  document.getElementById('ar-nearby-label').style.display = 'none';
+  document.getElementById('ar-arrow-wrap').style.display   = 'flex';
+  document.getElementById('ui-overlay').style.display   = 'block';
   userHeading = null; userLat = null; userLng = null;
-  gpsWatcher = null; arLoop = null;
+  gpsWatcher = null; arLoop = null; voiceAlertFired = false;
 }
 </script>
 </body>
