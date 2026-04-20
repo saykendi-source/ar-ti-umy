@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Cek Jadwal TI UMY - Test Mode</title>
+    <title>Cek Jadwal TI UMY</title>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
@@ -9,34 +9,37 @@
       #ui-overlay {
         position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
         background: rgba(0, 0, 0, 0.95); color: white; padding: 15px;
-        border-radius: 15px; font-family: sans-serif; z-index: 1000; width: 85%;
-        border: 2px solid #FFD700;
+        border-radius: 15px; font-family: sans-serif; z-index: 1000; width: 90%;
+        border: 2px solid #FFD700; box-shadow: 0px 4px 15px rgba(0,0,0,0.5);
       }
       input {
         width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px;
         border: 2px solid #444; background: #222; color: white; font-size: 14px; box-sizing: border-box;
       }
       #search-result {
-        margin-top: 10px; font-size: 12px; text-align: left; 
-        max-height: 250px; overflow-y: auto; color: #00FF00;
+        margin-top: 10px; font-size: 13px; text-align: left; 
+        max-height: 300px; overflow-y: auto; color: #00FF00;
       }
       .jadwal-item {
-        background: rgba(255,255,255,0.1); padding: 8px; margin-bottom: 5px; border-radius: 5px; border-left: 3px solid #FFD700;
+        background: rgba(255,255,255,0.1); padding: 10px; margin-bottom: 8px; 
+        border-radius: 5px; border-left: 4px solid #FFD700;
       }
+      #status-db { font-size: 10px; color: #888; margin-top: 5px; display: block; }
     </style>
   </head>
 
   <body style="margin: 0px; overflow: hidden;">
     <div id="ui-overlay">
-      <h2 style="margin: 0; font-size: 14px; color: #FFD700; text-align: center;">PENCARIAN JADWAL (DEBUG)</h2>
-      <input type="text" id="dosen-input" placeholder="Ketik nama dosen..." oninput="searchDosen()">
-      <div id="search-result">Memuat data...</div>
+      <h2 style="margin: 0; font-size: 14px; color: #FFD700; text-align: center;">CARI DOSEN (HARI INI)</h2>
+      <input type="text" id="dosen-input" placeholder="Ketik nama (misal: Nasyan)..." oninput="searchDosen()">
+      <div id="search-result">Menghubungkan ke Google Sheets...</div>
+      <span id="status-db">Status: Memuat...</span>
     </div>
 
     <a-scene embedded arjs='sourceType: webcam; debugUIEnabled: false;'>
       <a-marker preset="hiro">
         <a-plane position="0 0.6 0" rotation="-90 0 0" width="2.8" height="1" color="#1a1a1a">
-          <a-text value="Gunakan Input di Atas" align="center" position="0 0 0.1" width="3"></a-text>
+          <a-text value="Gunakan Input di Atas" align="center" position="0 0 0.1" width="3" color="#FFD700"></a-text>
         </a-plane>
       </a-marker>
       <a-entity camera></a-entity>
@@ -46,21 +49,14 @@
       const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ32Z9treiKtgIqpMnBjsYCwcMw88HYiA4r3mmonJQmeFB8jV1L0uIFKzlHcryqsg/pub?output=csv";
       let jadwalData = [];
 
-      // Ambil data
-      Papa.parse(sheetUrl + "&t=" + Date.now(), {
+      // Mengambil data dengan cache-buster agar selalu terbaru
+      Papa.parse(sheetUrl + "&cache=" + Date.now(), {
         download: true,
         header: true,
         complete: function(results) {
-          // Normalisasi Nama Kolom: Hilangkan spasi dan jadikan Uppercase
-          jadwalData = results.data.map(row => {
-            let newRow = {};
-            for (let key in row) {
-              newRow[key.trim().toUpperCase()] = row[key].trim();
-            }
-            return newRow;
-          });
+          jadwalData = results.data;
           document.getElementById('search-result').innerText = "Data siap. Silakan ketik nama dosen.";
-          console.log("Data loaded:", jadwalData);
+          document.getElementById('status-db').innerText = "Database: " + jadwalData.length + " baris dimuat.";
         }
       });
 
@@ -68,38 +64,37 @@
         const input = document.getElementById('dosen-input').value.toLowerCase().trim();
         const resultDiv = document.getElementById('search-result');
         
-        // Deteksi hari secara manual untuk testing
+        // Mengambil hari ini
         const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
         const today = days[new Date().getDay()].toLowerCase();
 
-        if (input.length < 2) {
-          resultDiv.innerHTML = "Ketik minimal 2 huruf...";
+        if (input.length < 3) {
+          resultDiv.innerHTML = "Ketik minimal 3 huruf nama dosen...";
           return;
         }
 
-        // Filter Super Toleran
+        // Filter berdasarkan kolom 'Dosen' dan 'Waktu' sesuai file Anda
         const matches = jadwalData.filter(row => {
-          const dosen = (row["DOSEN"] || "").toLowerCase();
-          const hari = (row["HARI"] || "").toLowerCase();
+          const namaDosen = (row["Dosen"] || "").toLowerCase();
+          const infoWaktu = (row["Waktu"] || "").toLowerCase();
           
-          // Kecocokan nama DAN hari (mengabaikan spasi/kapital)
-          return dosen.includes(input) && hari.includes(today);
+          // Mencari nama dosen DAN memastikan kata hari ini ada di kolom Waktu
+          return namaDosen.includes(input) && infoWaktu.includes(today);
         });
 
         if (matches.length > 0) {
-          let html = `<b style="color:#FFD700">Hasil untuk hari ${today.toUpperCase()}:</b><br><br>`;
+          let html = `<b style="color:#FFD700">Jadwal Hari Ini (${today.toUpperCase()}):</b><br><br>`;
           matches.forEach(m => {
             html += `<div class="jadwal-item">
-                      <b>${m.MULAI || '?'} - ${m.SELESAI || '?'}</b><br>
-                      Ruang: ${m.RUANG || '?'}<br>
-                      Matkul: ${m["MATA KULIAH"] || m["MATAKULIAH"] || 'Tidak Ada Nama'}
+                      <b>Ruang: ${m.Ruang || '?'}</b><br>
+                      Waktu: ${m.Waktu}<br>
+                      Matkul: ${m["MATA KULIAH"] || '?'}<br>
+                      <small>Kelas: ${m.Kelas || '-'}</small>
                     </div>`;
           });
           resultDiv.innerHTML = html;
         } else {
-          // Debugging info di layar
-          resultDiv.innerHTML = `Tidak ada hasil untuk "${input}" di hari "${today}".<br><br>
-          <small style="color: grey">Pastikan kolom 'HARI' di Sheets tertulis '${today}' dan kolom 'DOSEN' mengandung kata '${input}'.</small>`;
+          resultDiv.innerHTML = `Tidak ditemukan jadwal untuk "${input}" pada hari ${today}.`;
         }
       }
     </script>
