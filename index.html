@@ -17,14 +17,15 @@
         border: 2px solid #444; background: #222; color: white; font-size: 14px; box-sizing: border-box;
       }
       #search-result {
-        margin-top: 10px; font-size: 13px; text-align: left; 
+        margin-top: 10px; font-size: 13px; text-align: left;
         max-height: 300px; overflow-y: auto; color: #00FF00;
       }
       .jadwal-item {
-        background: rgba(255,255,255,0.1); padding: 10px; margin-bottom: 8px; 
+        background: rgba(255,255,255,0.1); padding: 10px; margin-bottom: 8px;
         border-radius: 5px; border-left: 4px solid #FFD700;
       }
       #status-db { font-size: 10px; color: #888; margin-top: 5px; display: block; }
+      #debug-info { font-size: 10px; color: #555; margin-top: 4px; display: block; word-break: break-all; }
     </style>
   </head>
 
@@ -34,6 +35,7 @@
       <input type="text" id="dosen-input" placeholder="Ketik nama (misal: Nasyan)..." oninput="searchDosen()">
       <div id="search-result">Menghubungkan ke Google Sheets...</div>
       <span id="status-db">Status: Memuat...</span>
+      <span id="debug-info"></span>
     </div>
 
     <a-scene embedded arjs='sourceType: webcam; debugUIEnabled: false;'>
@@ -46,51 +48,50 @@
     </a-scene>
 
     <script>
+      // ✅ URL Google Sheets yang benar (sudah diupdate)
       const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTayPnRtpp9N4qw7y73V7KS0xEY1kXtlDAGMCm4_IqzVWH_QYS-uVCZQRRZ62M3bQ/pub?output=csv";
       let jadwalData = [];
 
       Papa.parse(sheetUrl + "&cache=" + Date.now(), {
         download: true,
         header: true,
-        skipEmptyLines: true, // FIX 1: Lewati baris kosong agar tidak ada data null
+        skipEmptyLines: true,
         complete: function(results) {
           jadwalData = results.data;
+          const cols = results.meta.fields || [];
           document.getElementById('search-result').innerText = "Data siap. Silakan ketik nama dosen.";
           document.getElementById('status-db').innerText = "Database: " + jadwalData.length + " baris dimuat.";
+          // Tampilkan kolom yang ditemukan untuk memastikan nama kolom benar
+          document.getElementById('debug-info').innerText = "Kolom: " + cols.join(" | ");
         },
         error: function(err) {
-          // FIX 2: Tambahkan error handler agar kelihatan kalau CSV gagal dimuat
-          document.getElementById('search-result').innerText = "Gagal memuat data: " + err.message;
-          document.getElementById('status-db').innerText = "Status: ERROR";
+          document.getElementById('search-result').innerText = "❌ Gagal memuat data. Pastikan Google Sheets sudah di-publish ke web.";
+          document.getElementById('status-db').innerText = "Status: ERROR — " + err.message;
         }
       });
 
       function searchDosen() {
         const input = document.getElementById('dosen-input').value.toLowerCase().trim();
         const resultDiv = document.getElementById('search-result');
-        
-        // Mengambil hari ini
+
         const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
         const today = days[new Date().getDay()];
-        const todayLower = today.toLowerCase(); // untuk perbandingan
+        const todayLower = today.toLowerCase();
 
         if (input.length < 3) {
           resultDiv.innerHTML = "Ketik minimal 3 huruf nama dosen...";
           return;
         }
 
-        // FIX 3: Gunakan kolom "Hari" dan "Jam" yang benar sesuai struktur Excel,
-        //         bukan kolom "Waktu" yang tidak ada.
-        //         Tambahkan .trim().toLowerCase() untuk mengatasi spasi & kapitalisasi tidak konsisten.
+        // Filter berdasarkan kolom "Dosen" dan "Hari"
         const matches = jadwalData.filter(row => {
           const namaDosen = (row["Dosen"] || "").toLowerCase().trim();
-          const hariJadwal = (row["Hari"] || "").toLowerCase().trim(); // ✅ Kolom yang benar
-          
+          const hariJadwal = (row["Hari"] || "").toLowerCase().trim();
           return namaDosen.includes(input) && hariJadwal === todayLower;
         });
 
         if (matches.length > 0) {
-          let html = `<b style="color:#FFD700">Jadwal Hari Ini (${today.toUpperCase()}):</b><br><br>`;
+          let html = `<b style="color:#FFD700">Jadwal Hari Ini (${today}):</b><br><br>`;
           matches.forEach(m => {
             html += `<div class="jadwal-item">
                       <b>Ruang: ${m["Ruang"] || '?'}</b><br>
@@ -101,7 +102,19 @@
           });
           resultDiv.innerHTML = html;
         } else {
-          resultDiv.innerHTML = `Tidak ditemukan jadwal untuk "<b>${input}</b>" pada hari <b>${today}</b>.`;
+          // Bantu diagnosa: cek apakah nama dosen ada di hari lain
+          const allHari = jadwalData
+            .filter(r => (r["Dosen"] || "").toLowerCase().trim().includes(input))
+            .map(r => r["Hari"])
+            .filter(Boolean);
+          const uniqueHari = [...new Set(allHari)];
+
+          if (uniqueHari.length > 0) {
+            resultDiv.innerHTML = `Tidak ada jadwal "<b>${input}</b>" hari ini (${today}).<br>
+              <small style="color:#aaa">Jadwal tersedia di: ${uniqueHari.join(', ')}</small>`;
+          } else {
+            resultDiv.innerHTML = `Nama "<b>${input}</b>" tidak ditemukan di database.`;
+          }
         }
       }
     </script>
