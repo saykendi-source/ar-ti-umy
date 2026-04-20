@@ -1,112 +1,93 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>AR Campus Explorer - Prodi TI UMY</title>
+    <title>Cek Kehadiran Dosen - AR Prodi TI</title>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
       #ui-overlay {
-        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-        background: rgba(0, 0, 0, 0.85); color: white; padding: 15px;
-        border-radius: 15px; font-family: sans-serif; text-align: center; 
-        z-index: 1000; width: 85%; border: 2px solid #FFD700;
+        position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.9); color: white; padding: 15px;
+        border-radius: 15px; font-family: sans-serif; z-index: 1000; width: 90%;
+        border: 2px solid #FFD700; box-shadow: 0px 4px 15px rgba(0,0,0,0.5);
+      }
+      input {
+        width: 100%; padding: 10px; margin-top: 10px; border-radius: 5px;
+        border: none; font-size: 14px; box-sizing: border-box;
+      }
+      #search-result {
+        margin-top: 10px; font-size: 12px; text-align: left; 
+        max-height: 150px; overflow-y: auto; color: #00FF00;
       }
     </style>
   </head>
 
   <body style="margin: 0px; overflow: hidden;">
     <div id="ui-overlay">
-      <h2 style="margin: 0; font-size: 16px; color: #FFD700;">PRODI TI UMY - AR GUIDE</h2>
-      <p id="info-text" style="font-size: 13px; margin: 5px 0;">Menghubungkan ke Google Sheets...</p>
+      <h2 style="margin: 0; font-size: 14px; color: #FFD700; text-align: center;">CARI JADWAL DOSEN HARI INI</h2>
+      <input type="text" id="dosen-input" placeholder="Ketik nama dosen (contoh: Cahyo)..." oninput="searchDosen()">
+      <div id="search-result">Hasil akan muncul di sini...</div>
     </div>
 
     <a-scene embedded arjs='sourceType: webcam; debugUIEnabled: false;'>
-      <a-marker preset="hiro" id="marker-handler">
-        <a-plane position="0 0.6 0" rotation="-90 0 0" width="2.8" height="1.8" color="#1a1a1a" opacity="0.95">
-          <a-text id="ar-room" value="MENCARI RUANG..." align="center" position="0 0.6 0.1" width="3.5" color="#FFD700"></a-text>
-          <a-text id="ar-status" value="Checking..." align="center" position="0 0.3 0.1" width="2.8"></a-text>
-          
-          <a-text id="ar-matkul" value="-" align="center" position="0 0 0.1" width="2.5" color="#00FF00"></a-text>
-          <a-text id="ar-kelas" value="-" align="center" position="0 -0.25 0.1" width="2"></a-text>
-          <a-text id="ar-dosen" value="-" align="center" position="0 -0.5 0.1" width="2" wrap-count="35"></a-text>
+      <a-marker preset="hiro">
+        <a-plane position="0 0.6 0" rotation="-90 0 0" width="2.8" height="1.8" color="#1a1a1a" opacity="0.9">
+          <a-text value="INFO DOSEN" align="center" position="0 0.6 0.1" width="3.5" color="#FFD700"></a-text>
+          <a-text id="ar-info-dosen" value="Scan & Cari Dosen di Atas" align="center" position="0 0 0.1" width="2.5"></a-text>
         </a-plane>
       </a-marker>
       <a-entity camera></a-entity>
     </a-scene>
 
     <script>
-      // Link Google Sheets CSV Anda
       const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ32Z9treiKtgIqpMnBjsYCwcMw88HYiA4r3mmonJQmeFB8jV1L0uIFKzlHcryqsg/pub?output=csv";
-      
-      // SESUAIKAN: Nama ruang yang ingin dideteksi oleh Marker ini
-      const RUANG_TARGET = "F4.002"; 
-
       let jadwalData = [];
 
-      // Fetch data dari Google Sheets
       Papa.parse(sheetUrl, {
         download: true,
         header: true,
         complete: function(results) {
           jadwalData = results.data;
-          console.log("Data Berhasil Dimuat");
-          document.getElementById('info-text').innerText = "Siap! Scan Marker Hiro.";
         }
       });
 
-      function updateARDisplay() {
+      function searchDosen() {
+        const input = document.getElementById('dosen-input').value.toLowerCase();
+        const resultDiv = document.getElementById('search-result');
+        const arText = document.getElementById('ar-info-dosen');
+        
         const now = new Date();
         const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-        const currentDay = days[now.getDay()];
-        
-        // Ambil waktu saat ini (total menit)
-        const currentTotalMinutes = (now.getHours() * 60) + now.getMinutes();
+        const today = days[now.getDay()];
 
-        const match = jadwalData.find(row => {
-          if (!row.HARI || !row.MULAI || !row.SELESAI || !row.RUANG) return false;
+        if (input.length < 3) {
+          resultDiv.innerHTML = "Ketik minimal 3 huruf...";
+          return;
+        }
 
-          // 1. Cek Hari & Ruang (Trim untuk hapus spasi tak sengaja)
-          if (row.HARI.trim() !== currentDay) return false;
-          if (row.RUANG.trim() !== RUANG_TARGET) return false;
+        // Filter jadwal berdasarkan nama dosen dan HARI INI
+        const matches = jadwalData.filter(row => 
+          row.DOSEN && 
+          row.DOSEN.toLowerCase().includes(input) && 
+          row.HARI === today
+        );
 
-          // 2. Helper fungsi konversi jam "08:50" ke total menit
-          const toMin = (timeStr) => {
-            const t = timeStr.trim().replace(".", ":");
-            const [h, m] = t.split(":").map(Number);
-            return (h * 60) + m;
-          };
-
-          const start = toMin(row.MULAI);
-          const end = toMin(row.SELESAI);
-
-          return currentTotalMinutes >= start && currentTotalMinutes <= end;
-        });
-
-        if (match) {
-          updateText('ar-room', "RUANG: " + match.RUANG);
-          updateText('ar-status', "SEDANG BERLANGSUNG");
-          updateText('ar-matkul', match["MATA KULIAH"]);
-          updateText('ar-kelas', "Kelas: " + (match.KELAS || "-"));
-          updateText('ar-dosen', match.DOSEN || "-");
-          document.getElementById('info-text').innerText = "Jadwal Ditemukan!";
-          document.getElementById('info-text').style.color = "#00FF00";
+        if (matches.length > 0) {
+          let html = `<b>Jadwal ${today}:</b><br>`;
+          let arDisplay = `Dosen ditemukan di ${matches.length} kelas hari ini.`;
+          
+          matches.forEach(m => {
+            html += `• ${m.MULAI}-${m.SELESAI} | Ruang: ${m.RUANG}<br>`;
+          });
+          
+          resultDiv.innerHTML = html;
+          arText.setAttribute('value', arDisplay);
         } else {
-          updateText('ar-room', RUANG_TARGET);
-          updateText('ar-status', "TIDAK ADA JADWAL");
-          updateText('ar-matkul', "Ruangan Kosong");
-          updateText('ar-kelas', "-");
-          updateText('ar-dosen', "-");
-          document.getElementById('info-text').innerText = "Tidak ada jadwal di jam ini.";
-          document.getElementById('info-text').style.color = "white";
+          resultDiv.innerHTML = `Dosen tidak ada jadwal mengajar hari ${today}.`;
+          arText.setAttribute('value', `Tidak ada jadwal hari ${today}`);
         }
       }
-
-      function updateText(id, val) {
-        document.getElementById(id).setAttribute('value', val);
-      }
-
-      document.querySelector('#marker-handler').addEventListener('markerFound', updateARDisplay);
     </script>
   </body>
 </html>
