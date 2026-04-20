@@ -25,7 +25,7 @@
       width: 0; height: 0;
       border-left: 45px solid transparent;
       border-right: 45px solid transparent;
-      border-bottom: 90px solid #932520;
+      border-bottom: 90px solid #FFD700;
       filter: drop-shadow(0 0 16px rgba(255,215,0,0.95));
       transition: transform 0.25s ease;
     }
@@ -138,11 +138,9 @@
       Jarak: <span id="txt-dist">--</span>
     </div>
     <div id="ar-arrow-wrap">
-  <svg id="ar-arrow" width="100" height="120" viewBox="0 0 100 120" style="transition: transform 0.25s ease;">
-    <path d="M50 5 L95 55 L65 55 L65 115 L35 115 L35 55 L5 55 Z" fill="#FFD700" stroke="#000" stroke-width="2" />
-  </svg>
-  <div id="ar-label">Menunggu GPS...</div>
-</div>
+      <div id="ar-arrow"></div>
+      <div id="ar-label">Menunggu GPS & kompas...</div>
+    </div>
     <div id="ar-info-bar">--</div>
     <button id="btn-stop-ar" onclick="stopAR()">✕ Matikan AR</button>
   </div>
