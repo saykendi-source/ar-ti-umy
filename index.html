@@ -16,9 +16,24 @@
         width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px;
         border: 2px solid #444; background: #222; color: white; font-size: 14px; box-sizing: border-box;
       }
+      #day-selector {
+        display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap;
+      }
+      .day-btn {
+        flex: 1; min-width: 48px; padding: 7px 4px; border-radius: 8px;
+        border: 2px solid #444; background: #222; color: #aaa;
+        font-size: 12px; cursor: pointer; text-align: center;
+        transition: all 0.2s;
+      }
+      .day-btn.active {
+        border-color: #FFD700; background: #FFD700; color: #111; font-weight: bold;
+      }
+      .day-btn.today-marker {
+        border-color: #888; color: #fff;
+      }
       #search-result {
         margin-top: 10px; font-size: 13px; text-align: left;
-        max-height: 300px; overflow-y: auto; color: #00FF00;
+        max-height: 280px; overflow-y: auto; color: #00FF00;
       }
       .jadwal-item {
         background: rgba(255,255,255,0.1); padding: 10px; margin-bottom: 8px;
@@ -31,8 +46,13 @@
 
   <body style="margin: 0px; overflow: hidden;">
     <div id="ui-overlay">
-      <h2 style="margin: 0; font-size: 14px; color: #FFD700; text-align: center;">CARI DOSEN (HARI INI)</h2>
-      <input type="text" id="dosen-input" placeholder="Ketik nama (misal: Nasyan)..." oninput="searchDosen()">
+      <h2 style="margin: 0; font-size: 14px; color: #FFD700; text-align: center;">CARI JADWAL DOSEN TI UMY</h2>
+
+      <input type="text" id="dosen-input" placeholder="Ketik nama dosen (misal: Nasyan)..." oninput="searchDosen()">
+
+      <!-- Pilihan Hari -->
+      <div id="day-selector"></div>
+
       <div id="search-result">Menghubungkan ke Google Sheets...</div>
       <span id="status-db">Status: Memuat...</span>
       <span id="debug-info"></span>
@@ -48,9 +68,37 @@
     </a-scene>
 
     <script>
-      // ✅ URL Google Sheets yang benar (sudah diupdate)
       const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTayPnRtpp9N4qw7y73V7KS0xEY1kXtlDAGMCm4_IqzVWH_QYS-uVCZQRRZ62M3bQ/pub?output=csv";
       let jadwalData = [];
+
+      const hariList = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+      const dayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+      const todayName = dayNames[new Date().getDay()];
+
+      // Default: hari ini, atau Senin kalau hari ini Minggu
+      let selectedHari = hariList.includes(todayName) ? todayName : "Senin";
+
+      // Buat tombol hari
+      function buildDayButtons() {
+        const container = document.getElementById('day-selector');
+        hariList.forEach(hari => {
+          const btn = document.createElement('button');
+          const isToday = hari === todayName;
+          const isActive = hari === selectedHari;
+          btn.className = 'day-btn' + (isToday ? ' today-marker' : '') + (isActive ? ' active' : '');
+          btn.textContent = isToday ? hari + ' ★' : hari;
+          btn.dataset.hari = hari;
+          btn.onclick = () => {
+            selectedHari = hari;
+            document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            searchDosen();
+          };
+          container.appendChild(btn);
+        });
+      }
+
+      buildDayButtons();
 
       Papa.parse(sheetUrl + "&cache=" + Date.now(), {
         download: true,
@@ -60,8 +108,7 @@
           jadwalData = results.data;
           const cols = results.meta.fields || [];
           document.getElementById('search-result').innerText = "Data siap. Silakan ketik nama dosen.";
-          document.getElementById('status-db').innerText = "Database: " + jadwalData.length + " baris dimuat.";
-          // Tampilkan kolom yang ditemukan untuk memastikan nama kolom benar
+          document.getElementById('status-db').innerText = "Database: " + jadwalData.length + " baris | Hari ini: " + todayName;
           document.getElementById('debug-info').innerText = "Kolom: " + cols.join(" | ");
         },
         error: function(err) {
@@ -73,25 +120,22 @@
       function searchDosen() {
         const input = document.getElementById('dosen-input').value.toLowerCase().trim();
         const resultDiv = document.getElementById('search-result');
-
-        const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-        const today = days[new Date().getDay()];
-        const todayLower = today.toLowerCase();
+        const hariLower = selectedHari.toLowerCase();
 
         if (input.length < 3) {
           resultDiv.innerHTML = "Ketik minimal 3 huruf nama dosen...";
           return;
         }
 
-        // Filter berdasarkan kolom "Dosen" dan "Hari"
         const matches = jadwalData.filter(row => {
           const namaDosen = (row["Dosen"] || "").toLowerCase().trim();
           const hariJadwal = (row["Hari"] || "").toLowerCase().trim();
-          return namaDosen.includes(input) && hariJadwal === todayLower;
+          return namaDosen.includes(input) && hariJadwal === hariLower;
         });
 
         if (matches.length > 0) {
-          let html = `<b style="color:#FFD700">Jadwal Hari Ini (${today}):</b><br><br>`;
+          const isToday = selectedHari === todayName;
+          let html = `<b style="color:#FFD700">Jadwal ${isToday ? 'Hari Ini ' : ''}(${selectedHari}):</b><br><br>`;
           matches.forEach(m => {
             html += `<div class="jadwal-item">
                       <b>Ruang: ${m["Ruang"] || '?'}</b><br>
@@ -102,16 +146,16 @@
           });
           resultDiv.innerHTML = html;
         } else {
-          // Bantu diagnosa: cek apakah nama dosen ada di hari lain
+          // Tampilkan hari lain yang ada jadwalnya sebagai info tambahan
           const allHari = jadwalData
             .filter(r => (r["Dosen"] || "").toLowerCase().trim().includes(input))
-            .map(r => r["Hari"])
+            .map(r => (r["Hari"] || "").trim())
             .filter(Boolean);
           const uniqueHari = [...new Set(allHari)];
 
           if (uniqueHari.length > 0) {
-            resultDiv.innerHTML = `Tidak ada jadwal "<b>${input}</b>" hari ini (${today}).<br>
-              <small style="color:#aaa">Jadwal tersedia di: ${uniqueHari.join(', ')}</small>`;
+            resultDiv.innerHTML = `Tidak ada jadwal "<b>${input}</b>" pada hari <b>${selectedHari}</b>.<br>
+              <small style="color:#aaa">Tersedia di: ${uniqueHari.join(', ')}</small>`;
           } else {
             resultDiv.innerHTML = `Nama "<b>${input}</b>" tidak ditemukan di database.`;
           }
