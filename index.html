@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>AR Campus Explorer - Live Google Sheets</title>
+    <title>AR Campus Explorer - Prodi TI UMY</title>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
@@ -9,8 +9,8 @@
       #ui-overlay {
         position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
         background: rgba(0, 0, 0, 0.85); color: white; padding: 15px;
-        border-radius: 15px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        text-align: center; z-index: 1000; width: 85%; border: 2px solid #FFD700;
+        border-radius: 15px; font-family: sans-serif; text-align: center; 
+        z-index: 1000; width: 85%; border: 2px solid #FFD700;
       }
     </style>
   </head>
@@ -23,34 +23,35 @@
 
     <a-scene embedded arjs='sourceType: webcam; debugUIEnabled: false;'>
       <a-marker preset="hiro" id="marker-handler">
-        <a-plane position="0 0.6 0" rotation="-90 0 0" width="2.8" height="1.8" color="#1a1a1a" opacity="0.9">
+        <a-plane position="0 0.6 0" rotation="-90 0 0" width="2.8" height="1.8" color="#1a1a1a" opacity="0.95">
           <a-text id="ar-room" value="MENCARI RUANG..." align="center" position="0 0.6 0.1" width="3.5" color="#FFD700"></a-text>
           <a-text id="ar-status" value="Checking..." align="center" position="0 0.3 0.1" width="2.8"></a-text>
           
           <a-text id="ar-matkul" value="-" align="center" position="0 0 0.1" width="2.5" color="#00FF00"></a-text>
           <a-text id="ar-kelas" value="-" align="center" position="0 -0.25 0.1" width="2"></a-text>
-          <a-text id="ar-dosen" value="-" align="center" position="0 -0.5 0.1" width="2" wrap-count="30"></a-text>
+          <a-text id="ar-dosen" value="-" align="center" position="0 -0.5 0.1" width="2" wrap-count="35"></a-text>
         </a-plane>
       </a-marker>
       <a-entity camera></a-entity>
     </a-scene>
 
     <script>
-      const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTayPnRtpp9N4qw7y73V7KS0xEY1kXtlDAGMCm4_IqzVWH_QYS-uVCZQRRZ62M3bQ/pub?gid=572557853&single=true&output=csv";
-      const RUANG_TARGET = "F4.002"; // Contoh: Lab Jaringan di data Anda adalah F4.002
+      // Link Google Sheets CSV Anda
+      const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ32Z9treiKtgIqpMnBjsYCwcMw88HYiA4r3mmonJQmeFB8jV1L0uIFKzlHcryqsg/pub?output=csv";
+      
+      // SESUAIKAN: Nama ruang yang ingin dideteksi oleh Marker ini
+      const RUANG_TARGET = "F4.002"; 
+
       let jadwalData = [];
 
-      // 1. Ambil data Real-time dari Google Sheets
+      // Fetch data dari Google Sheets
       Papa.parse(sheetUrl, {
         download: true,
         header: true,
         complete: function(results) {
           jadwalData = results.data;
-          console.log("Data Terkoneksi:", jadwalData);
-          document.getElementById('info-text').innerText = "Koneksi Berhasil. Silakan Scan Marker.";
-        },
-        error: function(err) {
-          document.getElementById('info-text').innerText = "Gagal memuat data Google Sheets.";
+          console.log("Data Berhasil Dimuat");
+          document.getElementById('info-text').innerText = "Siap! Scan Marker Hiro.";
         }
       });
 
@@ -58,41 +59,46 @@
         const now = new Date();
         const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
         const currentDay = days[now.getDay()];
-        const currentTime = now.getHours() * 100 + now.getMinutes();
+        
+        // Ambil waktu saat ini (total menit)
+        const currentTotalMinutes = (now.getHours() * 60) + now.getMinutes();
 
-        // Cari baris yang cocok di CSV
         const match = jadwalData.find(row => {
-          if (!row.Waktu || !row.Ruang) return false;
-          
-          // Parsing kolom Waktu: "Senin, 08.50-11.30"
-          const parts = row.Waktu.split(",");
-          if (parts.length < 2) return false;
+          if (!row.HARI || !row.MULAI || !row.SELESAI || !row.RUANG) return false;
 
-          const hariDiSheet = parts[0].trim();
-          const jamRange = parts[1].trim().split("-");
-          
-          const start = parseInt(jamRange[0].replace(/[:.]/g, "").trim());
-          const end = parseInt(jamRange[1].replace(/[:.]/g, "").trim());
+          // 1. Cek Hari & Ruang (Trim untuk hapus spasi tak sengaja)
+          if (row.HARI.trim() !== currentDay) return false;
+          if (row.RUANG.trim() !== RUANG_TARGET) return false;
 
-          return row.Ruang.trim() === RUANG_TARGET && 
-                 hariDiSheet === currentDay &&
-                 currentTime >= start && currentTime <= end;
+          // 2. Helper fungsi konversi jam "08:50" ke total menit
+          const toMin = (timeStr) => {
+            const t = timeStr.trim().replace(".", ":");
+            const [h, m] = t.split(":").map(Number);
+            return (h * 60) + m;
+          };
+
+          const start = toMin(row.MULAI);
+          const end = toMin(row.SELESAI);
+
+          return currentTotalMinutes >= start && currentTotalMinutes <= end;
         });
 
         if (match) {
-          updateText('ar-room', "RUANG: " + match.Ruang);
+          updateText('ar-room', "RUANG: " + match.RUANG);
           updateText('ar-status', "SEDANG BERLANGSUNG");
           updateText('ar-matkul', match["MATA KULIAH"]);
-          updateText('ar-kelas', "Kelas: " + match.Kelas);
-          updateText('ar-dosen', match.Dosen);
-          document.getElementById('info-text').innerText = "Jadwal Aktif Ditemukan!";
+          updateText('ar-kelas', "Kelas: " + (match.KELAS || "-"));
+          updateText('ar-dosen', match.DOSEN || "-");
+          document.getElementById('info-text').innerText = "Jadwal Ditemukan!";
+          document.getElementById('info-text').style.color = "#00FF00";
         } else {
           updateText('ar-room', RUANG_TARGET);
-          updateText('ar-status', "TIDAK ADA JADWAL SEKARANG");
+          updateText('ar-status', "TIDAK ADA JADWAL");
           updateText('ar-matkul', "Ruangan Kosong");
           updateText('ar-kelas', "-");
           updateText('ar-dosen', "-");
-          document.getElementById('info-text').innerText = "Tidak ada jadwal saat ini.";
+          document.getElementById('info-text').innerText = "Tidak ada jadwal di jam ini.";
+          document.getElementById('info-text').style.color = "white";
         }
       }
 
@@ -100,7 +106,6 @@
         document.getElementById(id).setAttribute('value', val);
       }
 
-      // Event listener saat marker tertangkap kamera
       document.querySelector('#marker-handler').addEventListener('markerFound', updateARDisplay);
     </script>
   </body>
