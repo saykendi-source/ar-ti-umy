@@ -359,7 +359,7 @@ function searchDosen() {
   );
 
   if (matches.length > 0) {
-    let html = `<b style="color:#FFD700">Jadwal ${selectedHari===todayName?'Hari Ini ':''}(${selectedHari}):</b><br><br>`;
+    let html = `<b style="color:#004029">Jadwal ${selectedHari===todayName?'Hari Ini ':''}(${selectedHari}):</b><br><br>`;
     matches.forEach(m => {
       const ruang  = (m["Ruang"]||"").trim();
       const lok    = lokasiRuang[ruang];
